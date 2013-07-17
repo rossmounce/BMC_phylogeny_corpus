@@ -1,0 +1,2328 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>1471-2105-7-524.fm</title>
+<meta name="Author" content="petere"/>
+<meta name="Creator" content="FrameMaker 7.0"/>
+<meta name="Producer" content="Acrobat Distiller 7.0 (Windows)"/>
+<meta name="CreationDate" content=""/>
+</head>
+<body>
+<pre>
+BMC Bioinformatics
+
+BioMed Central
+
+Open Access
+
+Research article
+
+Improvement in accuracy of multiple sequence alignment using
+novel group-to-group sequence alignment algorithm with piecewise
+linear gap cost
+Shinsuke Yamada*1,2, Osamu Gotoh2,3 and Hayato Yamana1
+Address: 1Department of Computer Science, Graduate School of Science and Engineering, Waseda University, 3-4-1 Okubo, Shinjuku-ku, Tokyo
+169-8555, Japan, 2Computational Biology Research Center (CBRC), National Institute of Advanced Industrial Science and Technology (AIST), 243 Aomi, Koto-ku, Tokyo 135-0064, Japan and 3Department of Intelligence Science and Technology, Graduate School of Informatics, Kyoto
+University, Yoshida-Honmachi, Sakyo-ku, Kyoto 606-8501, Japan
+Email: Shinsuke Yamada* - shinsuke@yama.info.waseda.ac.jp; Osamu Gotoh - gotoh@cbrc.jp;
+Hayato Yamana - yamana@yama.info.waseda.ac.jp
+* Corresponding author
+
+Published: 01 December 2006
+BMC Bioinformatics 2006, 7:524
+
+doi:10.1186/1471-2105-7-524
+
+Received: 20 June 2006
+Accepted: 01 December 2006
+
+This article is available from: http://www.biomedcentral.com/1471-2105/7/524
+© 2006 Yamada et al; licensee BioMed Central Ltd.
+This is an Open Access article distributed under the terms of the Creative Commons Attribution License (http://creativecommons.org/licenses/by/2.0),
+which permits unrestricted use, distribution, and reproduction in any medium, provided the original work is properly cited.
+
+Abstract
+Background: Multiple sequence alignment (MSA) is a useful tool in bioinformatics. Although many
+MSA algorithms have been developed, there is still room for improvement in accuracy and speed.
+In the alignment of a family of protein sequences, global MSA algorithms perform better than local
+ones in many cases, while local ones perform better than global ones when some sequences have
+long insertions or deletions (indels) relative to others. Many recent leading MSA algorithms have
+incorporated pairwise alignment information obtained from a mixture of sources into their scoring
+system to improve accuracy of alignment containing long indels.
+Results: We propose a novel group-to-group sequence alignment algorithm that uses a piecewise
+linear gap cost. We developed a program called PRIME, which employs our proposed algorithm to
+optimize the well-defined sum-of-pairs score. PRIME stands for Profile-based Randomized Iteration
+MEthod. We evaluated PRIME and some recent MSA programs using BAliBASE version 3.0 and
+PREFAB version 4.0 benchmarks. The results of benchmark tests showed that PRIME can construct
+accurate alignments comparable to the most accurate programs currently available, including LINS-i of MAFFT, ProbCons, and T-Coffee.
+Conclusion: PRIME enables users to construct accurate alignments without having to employ
+pairwise alignment information. PRIME is available at http://prime.cbrc.jp/.
+
+Background
+Multiple sequence alignment (MSA) is a useful tool for
+elucidating the relationships among function, evolution,
+sequence, and structure of biological macromolecules
+such as genes and proteins [1-3]. Although we can calculate the optimal alignment of a set of sequences by ndimensional dynamic programming (DP), the DP
+
+method is applicable to only a small number of
+sequences. In fact, even when a sum-of-pairs (SP) score
+with the simplest gap cost is used as an objective function,
+computation of optimal MSA is an NP-hard problem [4].
+Hence, many heuristic methods have been developed.
+Almost all practical methods presently available adopt
+
+Page 1 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+either a progressive [5-7] or an iterative [8-10] heuristic
+strategy.
+The group-to-group sequence alignment algorithm is a
+straightforward extension of the pairwise sequence alignment algorithm, and is the core of progressive and iterative methods. The essential difference of group-to-group
+sequence alignment from pairwise sequence alignment is
+the existence of gaps within each group of prealigned
+sequences. The gap opening penalty used in an affine gap
+cost disrupts the independence between adjacent columns, and hence calculating the optimal alignment
+between two groups with respect to the SP score was
+shown to be NP-complete [11]. Gotoh was the first to
+devise a group-to-group sequence alignment algorithm
+that optimizes the SP score by using a candidate list paradigm [12]. An algorithm with a candidate list paradigm,
+similar to the branch-and-bound method, prunes the candidates that are dispensable for arrival at an optimal solution. Kececioglu and Starrett proposed another candidatepruning method [11]. Although these algorithms can calculate the optimal alignment between two groups, they
+require relatively extensive computational resources. Several papers have reported faster algorithms that use the
+heuristic estimation of gap opening penalties [8,10].
+Several studies have discussed the tendency that global
+alignment methods perform better than local ones
+[13,14]. However, the opposite is also true when some
+sequences to be aligned have long insertions or deletions
+(indels). One reason for this tendency is that almost all
+group-to-group sequence alignment algorithms use an affine-like gap cost that over-penalizes long indels. To alleviate this problem, several methods have combined
+pairwise global and local alignments, or incorporated
+consistency information among pairwise alignments
+[6,15,16]. Another strategy to prevent over-penalizing
+long indels is to use a concave function as the gap cost. It
+is relatively easy to choose a concave gap cost that does
+not over-penalize long indels, and several pairwise
+sequence alignment algorithms using this gap cost have
+been developed [17,18]. However, there have been few
+attempts to incorporate this gap cost into a group-togroup sequence alignment algorithm to develop an MSA
+program.
+In this paper, we propose a novel group-to-group
+sequence alignment algorithm with a piecewise linear gap
+cost [18], which is the key to a progressive or an iterative
+refinement method. The piecewise linear gap cost [18] is
+one of the concave functions and consists of L linear functions. Depending on the gap length, this gap cost varies its
+inclination, which corresponds to the gap extension penalty. However, in the case of group-to-group sequence
+alignment algorithm, it is difficult to calculate the proper
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+gap extension penalty with only the data structures used
+in the previous algorithm that were designed to detect the
+opening of new gaps [12,19]. Accordingly, we newly
+introduce two additional data structures: 'insertion length
+profile' and 'dynamic gap information'. An insertion
+length profile vector is associated with each column of a
+group of sequences, while dynamic gap information keeps
+track of information about gaps inserted into a group during the DP process. Together with those used in the previous algorithm, gap extension penalty can be calculated
+efficiently. Using the proposed algorithm, we developed a
+program called PRIME.
+PRIME stands for Profile-based Randomized Iteration
+MEthod. As a result of benchmark tests, the accuracy of
+our method is shown to be comparable to the most accurate methods available today, all of which incorporate
+pairwise alignment information obtained from all-by-all
+pairwise alignment. This implies that the piecewise linear
+gap cost is as effective as pairwise alignment information
+in improving the alignment accuracy of sequences, some
+of which have long indels.
+
+Algorithms
+In this section, we first review the previous group-togroup sequence alignment algorithm with an affine gap
+cost [12,19], and then describe a novel one with a piecewise linear gap cost. The final subsection outlines a doubly nested randomized iterative strategy with which our
+proposed algorithm is integrated.
+The definitions of symbols are as follows. Let Σ be the residue set and |Σ|, the number of elements in Σ. Σ* denotes
+the set containing a null and each element in Σ. A null
+means that a residue of one sequence does not aligned
+with that of another sequence when aligning sequences,
+and is denoted by the symbol '-'. A and B denote prealigned groups of sequences. A includes m rows, and B, n
+rows. The respective lengths of A and B are I and J. Ap, ai,
+and ap,i denote the p-th row of A, the i-th column of A and
+the i-th residue of Ap, respectively. Bq, bj, and bq,j are
+defined similarly. Both ap,i and bq,j belong to Σ*. Note that
+any column of a group must not be a null column, which
+consists of nulls only. If all nulls are removed from a
+group, each row is an usual sequence. A run of consecutive
+nulls in a row is called a gap. A gap length is the number
+of nulls constituting the gap. A segment of A that consists
+of consecutive columns as to at is denoted by A(s, t); A is
+also expressed as A(1, I). s(a, b) is a substitution score
+between residues a and b. By g(x), we mean a gap cost
+function of gap length x. The pair weight between the p-th
+
+Page 2 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+sequence in A and the q-th sequence in B is wp,q. If the
+three-way method [20] is used to calculate the pair
+weights, wp,q can be factorized as w Ap · wBq , where w Ap
+and wBq are the weights for the p-th sequence in A and the
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+partial alignment where ai and bj are aligned. Hi2 j and
+,
+
+Hi3 j mean partial alignment scores where ai and bj are
+,
+aligned with null columns, respectively. The recurrent
+equations are:
+
+q-th one in B, respectively.
+Review of previous group-to-group sequence alignment
+algorithm with affine gap cost
+The previous group-to-group sequence alignment algorithm that optimizes SP or weighted SP score with an affine gap cost is based on a two-dimensional DP method
+[12]. The key point of this algorithm is to exactly evaluate
+the gap opening penalties during the DP process. To
+explicitly consider gaps already present in each group, this
+algorithm introduces a gap state that denotes the number
+of consecutive nulls up to the current position.
+
+Another important feature of this algorithm is the candidate list paradigm, which is a variant of branch-andbound methods. Because the calculation of gap opening
+penalties depends on a previous partial DP path, simple
+extension of pairwise sequence alignment algorithm may
+not yield globally optimal alignment between two groups
+[12]. For rigorous calculation, not only locally optimal
+partial paths but also those that possibly contribute to globally optimal alignment have to be stored at each node of
+a DP matrix [11,12]. In the worst case, the number of candidates to be stored grows exponentially with the total
+number of sequences in the two groups [11]. As discussed
+in some papers [8,10,12], the group-to-group sequence
+alignment algorithm without the candidate list paradigm
+may suffice for good alignment. Moreover, because the
+novel group-to-group sequence alignment algorithm
+described below requires roughly twice as much computation time as the previous one at each DP process, we
+adopted a simpler algorithm without the candidate list
+paradigm.
+
+{ }
+
+(1)
+
+Hi0 j = max Hik, j
+,
+1≤k ≤3
+
+(2)
+
+H1, j = Hi0 1, j −1 + G(a i , b j ; Pi0 1, j −1 ) + S(a i , b j )
+i
+−
+−
+
+{
+
+}
+
+( 3)
+
+{
+
+}
+
+(4)
+
+Hi2 j = max Hik−1, j + G(a i , −; Pik 1, j ) + S(a i , −)
+,
+−
+k =0,2
+
+Hi3 j = max Hik, j −1 + G(−, b j ; Pikj −1 ) + S(−, b j )
+,
+,
+k =0,3
+
+where '-' denotes a null column, and Pi0 1, j −1 is a partial
+−
+DP path. A partial DP path is one from (0, 0) to the node
+of the DP matrix in question, representing a partial alignment; for example, Pi0j represents a partial alignment
+,
+with the best score Hi0 j between A(1, i) and B(1, j)·S(ai,
+,
+bj) is responsible for the calculation of substitution scores
+and gap extension penalties:
+
+S(a i , b j ) =
+
+∑ ∑
+
+1≤ p≤m 1≤q ≤n
+
+( 5)
+
+wp,q ⋅ s(ap,i , bq , j ).
+
+If either a or b is a null, s(a, b) = -u, and if both a and b are
+null, s(a, b) = 0. G(ai, bj; Pi0 1, j −1 ) is the gap opening pen−
+alty when ai is aligned with bj:
+G(a i , b j ; Pi0 1, j −1 ) =
+−
+
+∑ ∑
+
+1≤ p≤m 1≤q ≤n
+
+0
+wp,q ⋅ (−v) ⋅ γ (ap,i , bq , j , x0,i −1 , yq , j−1 ).
+p
+
+(6)
+
+Basic algorithm
+Let an affine gap cost function be g(x) = -(ux + v), where
+u(> 0) and v(> 0) are constants called gap extension penalty and gap opening penalty, respectively. The group-togroup sequence alignment algorithm with the affine gap
+cost employs essentially the same recurrent relations as
+the pairwise sequence alignment algorithm [21], with
+exact evaluation of gap opening and extension penalties.
+Like the pairwise sequence alignment algorithm, we calculate four variables at each node, (i, j), of the DP matrix:
+
+As mentioned above, the gap state is the length of the gap
+up to the current position. γ(a, b, x, y) represents whether
+a gap opens with respect to a pair of rows. Specifically, if
+a is a residue, x ≥ y, and b is a null; or if a is a null, x ≤ y,
+and b is a residue; then γ(a, b, x, y) = 1. Otherwise, γ(a, b,
+x, y) = 0. In order to evaluate exact gap openings for calcu-
+
+Hi0 j , H1, j , Hi2 j , and Hi3 j . Hi0 j holds the best score
+,
+i
+,
+,
+,
+
+lation of each Hik, j , the gap states must be updated. If ap,i
+
+among H1, j , Hi2 j , and Hi3 j at (i, j). H1, j is a score of a
+i
+,
+,
+i
+
+0
+x0,i −1 and yq , j −1 are the gap states for the p-th and q-th
+p
+
+rows in A(1, i - 1) and B(1, j - 1) on Pi0 1, j −1 , respectively.
+−
+
+d
+is a null, x0,i = xp,i −1 + 1 where d = arg max1≤k≤3 { Hik, j }.
+p
+
+Page 3 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+Otherwise, x0,i = 0. The other gap states are calculated in
+p
+a similar way.
+Use of generalized profile
+Although equations 5 and 6 require O(mn) computational steps, these steps can be reduced by using a generalized profile [19] and the three-way weighting method
+[20]. The idea of using the generalized profile is that the
+same residue types or gap states on a column are treated
+together. The generalized profile consists of four vectors
+calculated from each column of a group: frequency, residue profile, and two kinds of static gap profile vectors.
+These vectors can be obtained in advance of the DP process. The frequency and residue profile vectors are used to
+calculate S(ai, bj), while the static gap profile vectors are
+
+necessary to calculate G(ai, bj; Pi0 1, j −1 ).
+−
+
+∑
+
+r∈Σ*
+
+fa i ,r ⋅ pb j ,r =
+
+∑ pa ,r ⋅ fb ,r
+
+r∈Σ*
+
+i
+
+0 ≤ y2,11 = 0 where x1,7 and y2,11 are the static gap states of
+a1,7 and b2,11, respectively. For correct detection of gap
+opening, we need 'running gap states', each of which represents the sum of the numbers of consecutive static and
+dynamic nulls up to the current position. For the example
+shown in Figure 1, the running gap state for A2 at column
+position a7 is 11, which is composed of 7 static nulls and
+4 dynamic nulls.
+Static gap states are compactly represented as a static gap
+profile. A static gap profile is obtained by gathering static
+gap states with the same values at a column. More specifically, the static gap profile at a column ck consists of two
+vectors Ec k and Sc k . Each element of both vectors has the
+
+With the frequency and residue profile vectors, S(ai, bj) is
+calculated by
+
+S(a i , b j ) =
+
+However, if the gap opening penalty were calculated using
+the static gap states only, a gap opening would be detected
+wrongly, because a1,8 is a null, b2,12 is a residue, and x1,7 =
+
+j
+
+(7)
+
+same form: {(g, f)} where g is the gap state of previous column ck-1 and f is the weighted frequency of the occurrence
+of rows whose element on ck is either a residue or null
+depending on Ec k or Sc k , respectively. Although Ec k
+itself may be used to calculate gap opening penalties, its
+
+where residue frequency fa i ,r is the weighted frequency of
+occurrence of residue type r (including null) on column
+
++
+accumulated form, Ec , is more convenient to reduce the
+k
+
+ai, and residue profile pb j ,r = ∑ t∈Σ* fb j ,r ⋅ s(r , t ) . Both
+
++
+computation time. If an element in Ec is (g, f+), f+ repre-
+
+pa i ,r and fb j ,r are defined in the same way. The right
+
+sents the weighted frequency of the occurrence of rows
+whose gap states are not less than g. For the example
+
+hand side of equation 7 requires O(|Σ*|), because each
+frequency and residue profile vector consists of |Σ*| values. When m × n is sufficiently large, the computation
+time can be considerably reduced. Although S(ai, bj) is
+easy to calculate, the profile-based calculation of G(ai, bj;
+
+Pi0 1, j −1 ) is somewhat complicated, because, in addition
+−
+to static gaps, dynamic gaps must be considered explicitly.
+A static gap consists of consecutive static nulls that already
+exist in each group, while a dynamic gap denotes a run of
+dynamic nulls that are inserted into each group during the
+DP process. Note that we distinguish static and dynamic
+gaps for convenience of the description of our algorithm,
+while they contribute to the total alignment score in the
+same way. Let us consider an example of the gap opening
+penalty calculation when a8 is aligned with b12 (Figure 1).
+To keep the discussion simple, we consider A1 and B2 only.
+From simple observation, we find that a gap between A1
+and B2 has already opened before a8 is aligned with b12.
+
+k
+
++
+shown in Figure 1, Ea8 , Ea , and Sa8 are {(0, w A4 ), (2,
+8
+
+w A3 ), (7, w A2 )}, {(0, w A4 + w A3 + w A2 ), (2, w A3 +
+w A2 ), (7, w A2 )}, and {(0, w A1 )}, respectively. Since all
+gap states are different in the worst case, the total number
++
+of elements of Ec and Sc k is at most the number of
+k
+
+sequences in the group.
+Like a static gap profile, a running gap profile can represent running gap states compactly. In order to obtain a
+running gap profile, another data structure called a gap
+mediation profile is required. A gap mediation profile is
+defined for each path in the DP process, and records the
+total number of dynamic nulls inserted into static gaps
+that are currently open. Each element of the gap mediation profile is expressed as (s, d), where s is the length of a
+static gap and d is the summed length of dynamic gaps
+inserted within or after the static gap. Let Mi0 j (A) be the
+,
+Page 4 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+i
+A1
+A2
+A3
+A4
+
+−
+−
+−
+−
+
+1
+·
+·
+∗
+∗
+
+2
+·
+·
+∗
+∗
+
+−
+−
+−
+−
+
+3
+− ∗
+− ·
+− ∗
+− ∗
+
+4 5
+∗ ·
+· ·
+∗ ∗
+∗ ∗
+
+6
+∗
+·
+·
+∗
+
+−
+−
+−
+−
+
+8
+·
+∗
+∗
+∗
+
+B1
+B2
+j
+
+∗
+∗
+1
+
+∗
+∗
+2
+
+∗
+∗
+3
+
+∗
+∗
+4
+
+·
+∗
+5
+
+· ·
+∗ ∗
+7 8
+
+· ·
+·
+∗ ∗ ∗
+9 10 11
+
+·
+∗
+12
+
+·
+∗
+6
+
+7
+∗
+·
+·
+∗
+
+Figure
+Example1of gap extension penalty calculation
+Example of gap extension penalty calculation. This figure shows an example of columns a8 and b12 being aligned. '*',
+'·', and '-' denote a residue, a static null, and a dynamic null,
+respectively. We assume that piecewise linear gap cost g(x) is
+maxk = 1,2{-(ukx + vk)} and critical gap length xc (= Q(v2 - v1)/(u1 u2)N) is 4. Gap extension penalty is u1 if x ≤ 4, otherwise u2.
+
+ˆ
+ˆ+
+Running gap profile vectors Sa8 and Ea are {(1, w A1 )} and
+8
+
+there exists element (s, d) in Mi0 1, j −1 (A) such that g = s,
+−
+then (s + 1, d) ∈ Mi0 j (A). In the case where bj is aligned
+,
+with a null column, then (s, d + 1) ∈ Mi0 j (A) where (s, d)
+,
+is an element in Mi0 j −1 (A) or Mi3 j −1 (A) depending on the
+,
+,
+maximum operation of equation 4. If ai is aligned with a
+null column, Mi0 j (A) equals Mi0 , j (A) or Mi2 , j (A). In
+,
+−1
+−1
+0
+the case of Figure 1, M7,11 (A) = {(0, 1), (2, 1), (7, 4)} is
+0
+derived from M7,10 (A) = {(0, 0), (2, 0), (7, 3)}. The other
+gap mediation profile vectors are constructed in a similar
+way.
+
+ˆ
+ˆ+
+Running gap profile vectors Ea and Sa i are obtained by
+i
+
+{(1, w A2 + w A3 + w A4 ), (3, w A2 + w A3 ), (11, w A2 )},
+
+combining gap mediation profile Mi0 1, j −1 (A), and static
+−
+
+0
+respectively. Dynamic gap information D7,11 (A) is {(0, 1), (2,
+
++
+gap profiles Ea and Sa i , respectively. For each (g, f+) in
+i
+
+2), (7, 1)}. Segment profile Fa8 is {(1, w A2 ), (3, w A2 +
+
++
+Ea , (s, d) is chosen from Mi0 1, j −1 (A) such that g = s, and
+−
+
+w A3 ), (5, w A2 + w A3 + w A4 )}. Similarly, the profile vecˆ
+ˆ+
+tors of B are defined: Sb12 = {(7, wB1 )}, Eb
+
+12
+
+= {(0, wB2 )},
+
+0
+D7,11 (B) is empty, and Fb12 = {(1, 0), (9, wB2 )}. In what fol-
+
+lows, we consider the non-trivial calculation of the gap
+extension penalty with respect to the gap of B1, the target
+0
+ˆ
+gap. By using Sb11 and D7,11 (A), we find that the two
+0
+dynamic gaps specified by (2, 2) and (7, 1) in D7,11 (A) are
+partially and completely aligned with the target gap, respectively. Consequently, the total number of nulls aligned with
+null columns of dynamic gaps to be removed is 2. Therefore,
+the number of columns of B1 is 5(= 7 - 2). By subtracting 5
+from 8 (the end position of the segment), the starting position of A, 3, is obtained. Then, the gap extension penalty with
+respect to the gap of B1 is wB1 (F1·u1 + F2·u2) where F1 =
+
+w A2 + w A3 and F2 = w A4 . Note that A1 is not involved in
+the gap extension penalty because a1,8 is a null.
+
+i
+
+ˆ
+ˆ+
+then (s + d, f+) ∈ Ea . Similarly, Sa i is obtained from
+i
+
+Mi0 1, j −1 (A)
+−
+
+ˆ
+ˆ+
+and Sa i . For example, Ea and Sa8 at the
+8
+
+node (8, 12) of Figure 1 are {(1, w A2 + w A3 + w A4 ), (3,
+
+w A2 + w A3 ), (11, w A2 )} and {(1, w A1 )}, respectively.
+ˆ
+ˆ+ ˆ
+ˆ+
+Using running gap profile vectors Ea , Sa i , Eb , and Sb j ,
+i
+j
+Equation 6 can be rewritten as:
++
++
+G(a i , b j ; Pi0 1, j −1 ) = (−v) ⋅ (Sb j i Ea + Sa i i Eb ).
+−
+i
+
+j
+
+(8)
+
+S • E+ is expressed as
+
+Si E+ =
+
+∑
+
+1≤ p≤|S|
+
++
+f ( sp ) ⋅ f (eq )
+
++
+where sp and eq are the p-th and q-th elements in S and E+,
+
+respectively, and f(e) is the weighted frequency of element
+gap mediation profile of group A at the DP node (i,
+j)· Mi0 j
+,
+
+(A) follows a recurrent relation, the initial condi-
+
++
+e. q is chosen such that the gap state of eq is the smallest
+
+(A) = {(0, 0)}. We first consider the
+
+among the elements in E+ whose gap states are not less
+than that of sk. Calculation of S • E+ requires O(|S|) + |E+|),
+
+case where ai and bj are aligned. For each (g, f) in Sa i , if
+
+and hence G(ai, bj; Pi0 1, j −1 ) at most O(m + n). Using equa−
+
+tion of which is
+
+Mi0 j
+,
+
+tion 8 instead of equation 6 can reduce computation from
+Page 5 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+O(mn) to O(m + n) even in the worst case where gap states
+on a column are mutually different.
+Novel group-to-group sequence alignment algorithm with
+piecewise linear gap cost
+In this section, we describe a novel group-to-group
+sequence alignment algorithm with a piecewise linear gap
+cost. Although this algorithm uses recurrent equations 1
+to 4, the algorithms calculating S(ai, bj) and G(ai, bj;
+
+Pi0 1, j −1 ) must be changed. Roughly speaking, the term for
+−
+calculating gap extension penalties is transferred from
+S(ai, bj) to G(ai, bj; Pi0 1, j −1 ). After explanation of the
+−
+piecewise linear gap cost, we describe these algorithms in
+detail.
+Piecewise linear gap cost
+The piecewise linear gap cost consists of several linear
+functions [18]:
+
+( 9)
+
+g( x) = max{−(ul x + vl )}
+1≤l ≤ L
+
+where ul > ul+1(≥ 0) and vl+1 > vl(> 0). When L = 1, this cost
+is the same as the affine gap cost. This cost could alleviate
+over-penalizing long indels, because the inclination of
+g(x), which corresponds to a gap extension penalty, ul,
+becomes small as gap length increases. In other words,
+this cost calculates gap extension penalties based on gap
+length. For the sake of simplicity, we restricted our attention to the case of L = 2. Then, g(x) = -(u1x + v1) if x ≤ xc or
+g(x) = -(u2x + v2), otherwise, xc = Q(v2 - v1)/(u1 - u2)N is called
+the critical gap length.
+Calculation of substitution score
+As mentioned above, the calculation of gap extension
+penalties must be separated from the calculation of the
+substitution score S(ai, bj) in order to use the piecewise
+linear gap cost. Therefore, S(ai, bj) is expressed as:
+
+S(a i , b j ) =
+
+∑ fa ,r ⋅ pb ,r = ∑ pa ,r ⋅ fb ,r .
+
+r∈Σ
+
+i
+
+j
+
+r∈Σ
+
+i
+
+j
+
+( 10 )
+
+where pb j ,r = ∑ t∈Σ fb j ,r ⋅ s(r , t ) . Note that this equation
+and the definition of residue profile vector sum over not
+Σ* but Σ.
+Calculation of gap extension penalty
+
+In the previous algorithm with an affine gap cost, G(ai, bj;
+
+Pi0 1, j −1 ) was responsible for the gap opening penalty
+−
+only; however, it must take care of the gap extension penalty in the case of the piecewise linear gap cost. Therefore,
+
+a term for gap extension penalty is added to the right hand
+side of equation 8. Let us consider an example of gap
+extension penalty calculation for the null on b12 aligned
+with the residues on a8 (the last column of Figure 1). The
+gap state at b1,12 is 8. With omission of nulls that are
+aligned with other nulls, the lengths of the gap on B1 relative to A2, A3, and A4 are 1, 4, and 6, respectively. Assuming that the critical gap length xc = 4, we obtain the
+respective gap extension penalties for A2, A3, and A4 as u1,
+u1, and u2. Therefore, the gap extension penalty in question is w A1 (F1·u1 + F2·u2), where F1 = w A2 + w A3 and F2
+= w A4 .
+This example indicates two important points for the exact
+calculation of gap extension penalty. First, each gap length
+is obtained by counting the residues on each row of a specific range in A called 'relevant segment', A(3, 8) in this
+example. Second, the two nulls on B1 at columns b5 and
+b11 are aligned with two separate dynamic gaps inserted
+into A. The first observation suggests that F1 and F2 for any
+segment may be calculated before the DP process. However, the second observation indicates that the number of
+null columns of dynamic gaps aligned with static nulls on
+a target gap must be subtracted from the gap state of the
+target gap for correct assignment of the relevant segment;
+without this subtraction, the relevant segment would be
+assigned as A(1, 8) in the above example.
+We initially consider the first point, neglecting the presence of dynamic gaps for a moment. Without loss of generality, we assume that the residues on ai are aligned with
+a null of a target gap on bj whose gap state is g. We define
+F0(ai) as the weighted fraction of nulls on ai:
+
+F0 (a i ) ≡ ∑ p=1 w Ap δ (ap,i , −) , where δ(a, b) = 1 if a = b, othm
+
+erwise, δ(a, b) = 0, and '-' denotes a null. F0(ai) is the same
+as the null component of the frequency profile at ai, i.e.
+F0(ai) = fa i ,− . We also define F1(A, i, g) as the sum of
+weights of sequences {Ap} such that ap,i ≠ '-' and the
+number of residues within segment A(i - g + 1, i) aligned
+with the target gap is less than or equal to xc:
+
+F1( A, i, g) = ∑ p=1 w Ap (1 − δ (ap,i , −))Δ(ap , i, g) ,
+m
+
+where
+
+Δ(ap, i, g) = 1 if the number of residues on the p-th row of
+A(i - g + 1, i) is less than or equal to xc, otherwise, Δ(ap, i,
+g) = 0. Specifically, if
+
+i − g +1
+
+∑ k =i
+
+(1 − δ (ap,k , −)) ≤ xc , then
+
+Page 6 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+Δ(ap, i, g) = 1, otherwise, Δ(ap, i, g) = 0. Likewise, F2(A, i, g)
+
+to Di0 j (A). The other dynamic gap information lists are
+,
+
+is defined as the sum of weights of sequences {Ap} such
+
+obtained in a similar way.
+
+that ap,i ≠ '-' and the number of residues within A(i - g + 1,
+i) aligned with the target gap is greater than xc. Obviously,
+F0(ai)+ F1(A, i, g) + F2(A, i, g) = 1.
+
+(11)
+
+Because there may exist gap states g and g' (0 ≤ g <g' ≤ i)
+such that F1(A, i, g) = F1(A, i, g'), we need to store only distinct F1(A, i, g) values, the number of which is at most the
+number of rows of A, m. For actual calculations, we use an
+'insertion length profile' associated with each column of a
+group. An insertion length profile of column ai, Fa i is
+
+It is worth mentioning that dynamic gap information
+
+Di0 j (A) and gap mediation profile Mi0 j (A) contain infor,
+,
+mation on dynamic gaps from different viewpoints. The
+information held in dynamic gap information is relevant
+to the group aligned with a gap in question (group A in
+the present example), while that maintained in a gap
+mediation profile is relevant to the group containing the
+gap (group B in the above example). In addition, each element of Di0 j (A) refers to a single dynamic gap, while that
+,
+
+expressed as Fa i = {(i - gk + 1, F1(A, i, gk))}, where gk is a
+
+of Mi0 j (A) records the total length of separate dynamic
+,
+
+maximum gap state such that F1(A, i, gk) = F1(A, i, g') for
+
+gaps inserted within or after a static gap. In the case of Fig-
+
+gk ≤ g' <gk+1. Information about F2(A, i, g) does not need to
+
+0
+ure 1, each element of D8,12 (A) = {(0, 1), (2, 2), (7, 1)}
+indicates the dynamic gaps of lengths 1, 2, and 1 inserted
+before column a1, after a2, and after a7, respectively, while
+
+be recorded, because it can be easily derived from F0(ai)
+and Fa i through equation 11.
+The second point raises the key problem: how to deterˆ
+mine the 'tailored gap state' of the target gap, g = g - s,
+where g is the gap state of the target gap and s is the
+number of dynamic null columns to be removed for correct assignment of the relevant segment. For example,
+dynamic null columns aligned with b5 and b11 in Figure 1
+are removed. To keep track of the dynamic gaps to be
+removed, we newly introduce the 'dynamic gap information' list. Each element of dynamic gap information is represented by (p, l), where p and l indicate the position and
+the length of a dynamic gap, respectively. For efficiency,
+the dynamic gap information list {(pk, lk)} is sorted in
+order of pk. The dynamic gap information of group A at (i,
+j),
+
+Di0 j
+,
+
+(A), is recurrently calculated as follows. When ai
+
+and bj are aligned, Di0 j (A) is simply copied from
+,
+
+Di0 1, j −1 (A). Similarly, when ai is aligned with a null col−
+umn, Di0 j (A) is copied from Di0 , j (A) or Di2 , j (A)
+,
+−1
+−1
+
+0
+that of M7,11 (A) = {(0, 1), (2, 1), (7, 4) } means the total
+length of dynamic gaps inserted after the last non-null residue within or before the present column in A1 or A4, A3,
+
+and A2, respectively.
+Given a dynamic gap information list Di, j(A) = {(pk, lk)}
+and a gap state g, we can easily derive the tailored gap state
+ˆ
+g with the following algorithm, in which s denotes the
+total number of dynamic gap columns to be removed and
+tk indicates the distance in the reverse direction from the
+current position i to the start position of the k-th dynamic
+gap inserted into A(1, i):
+Algorithm getTailoredGapState(Di,j(A), g)
+1. s ← 0
+2. for k ← |Di,j(A)| down to 1
+(a) tk ← s + i - pk+ lk
+
+depending on the maximum operation of recurrent equa-
+
+(b) if tk ≤ g, then s ← s + lk
+
+tion 3. When bj is aligned with a null column, Di0 j (A) is
+,
+
+(c) else if tk - lk <g, then s ← s + g - (tk - lk)
+
+first copied from Di0 j −1 (A) or Di3 j −1 (A), and then a new
+,
+,
+element is added to it or its last element is modified. Specifically, if the last element of Di0 j (A) is (i, l), it is modi,
+
+ˆ
+(d) if tk ≥ g, then return g ← g - s
+ˆ
+3. retrun g ← g - s
+
+fied to (i, l + 1). Otherwise, a new element (i, 1) is added
+Page 7 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+The gap extension penalty for the target gap is then
+obtained by
+
+4. Iteratively refine the alignment using the phylogenetic
+tree and the pair weights
+
+ˆ
+ˆ
+wB{u1·F1(A, i, g ) + u2·F2(A, i, g )},
+
+(a) Divide the alignment into two groups based on a randomly chosen branch of the tree
+
+(12)
+
+where wB is the weight given to the sequence containing
+the target gap. Note that step 2c in this algorithm examines whether or not the dynamic gap in question is partially aligned with the target gap. For the example
+considered in Figure 1, t3 = 0 + 8 - 7 + 1 = 2, and s = l3 = 1
+are calculated after the first iteration of steps 2 in this algorithm. In the second iteration, we obtain t2 = 1 + 8 - 2 + 2
+= 9. Because t2 = 9 > g = 8 and t2 - l2 = 7 <g = 8, we can recognize that the dynamic gap is partially aligned with the
+target gap, and hence the number of dynamic null columns to be removed 8 - 7 = 1 is added to s. The gap extension penalty, u, summed over all the nulls on column bj
+can easily be calculated with the following algorithm:
+1. u ← 0
+
+ˆ
+2. for h ← 1 to | Sb j |
+ˆ
+(a) g ← getTailoredGapState(Di,j(A), gh)
+(b) u ← u + fh{u1·F1(A, i, gh ) + u2·F2(A, i, gh )}
+3. return u
+
+ˆ
+where (gh, fh) is the h-th element of Sb j . Because we have
+ˆ
+already prepared running gap state profile Sb j , the comˆ
+putation is done in O(|Di,j(A)|·| Sb j |). To obtain the total
+gap extension penalty at each DP step, we must also consider the opposite situation where residues on bj are
+aligned with gaps on ai in a similar way.
+Doubly nested randomized iterative strategy
+The doubly nested randomized iterative strategy involves
+refinement of alignment, phylogenetic tree, and pair
+weights until these are mutually consistent [9]. After preparation of an initial alignment with such progressive
+methods as the oligomer counting based method [8,10],
+this strategy refines the initial alignment as follows:
+
+1. Calculate a distance matrix from the multiple alignment
+2. Construct a phylogenetic tree from the distance matrix
+3. Calculate pair weights from the phylogenetic tree
+
+(b) Align these two groups using a group-to-group
+sequence alignment algorithm
+(c) Repeat steps 4a to 4b until no better weighted SP score
+is obtained
+5. Repeat steps 1 to 4 until the weighted SP score of the
+alignment does not improve anymore at step 4
+
+Results
+PRIME
+We developed a program called PRIME (Profile-based
+Randomized Iteration Method). PRIME is written in ISO
+standard C++, implementing the doubly nested randomized iterative strategy similar to our previous MSA program, Prrn [9]. However, PRIME employs our proposed
+algorithm with a piecewise linear gap cost in contrast to
+Prrn that uses an affine gap cost. Another algorithmic difference between PRIME and Prrn is that the latter uses the
+candidate list paradigm in the group-to-group sequence
+alignment algorithm and the anchoring method, whereas
+the former adopts a simpler DP method without anchoring heuristics. The parameters of PRIME including selection of substitution matrix and gap cost parameters are
+optimized using an older BAliBASE, version 2.01 [22].
+Because only about 20% of the sequences in BAliBASE
+version 3.0 [23] used for the test are common to those in
+BAliBASE version 2.01, we do not think that these parameters are over-fitted against BAliBASE version 3.0. Initial
+MSAs are constructed using a simple progressive method
+with the proposed group-to-group sequence alignment
+algorithm based on a distance matrix calculated from
+pairwise sequence alignment. The PRIME source code is
+provided as an additional file [see Additional file 1], and
+can be downloaded at PRIME website [24]. The future version of PRIME will be available at this site.
+Benchmarks
+To evaluate the performance of PRIME and other MSA
+programs shown in Table 1, we execute two benchmarks:
+BAliBASE version 3.0 [22,23,25] and PREFAB version 4.0
+[8]. In the case of PREFAB, we also test two global pairwise
+sequence alignment programs as controls: PSApiecewise and
+PSAaffine. PSApiecewise and PSAaffine use the piecewise linear
+gap cost and the affine gap cost, respectively.
+BAliBASE
+BAliBASE is categorized into five references according to
+the nature of sequences to be aligned (Table 2). Reference
+
+Page 8 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+Table 1: List of evaluated programs
+
+program
+
+version
+
+3.4
+5.662
+1.09
+2.02
+3.52
+0.2.1
+2
+1.83
+
+PRIMEpiecewise
+PRIMEaffine
+Prrn [9]
+MAFFT* [15]
+ProbCons* [16]
+T-Coffee* [27]
+MUSCLE [8]
+DIALIGN-T [28]
+POA [5]
+ClustalW [7]
+
+option
+blosum62, g(x) = max{-(x + 9), -(0.5x + 21.5)}
+blosum62, g(x) = -(x + 9)
+-b2 -mblosum62 -u1 -v9
+--maxiterate 1000 --localpair (L-INS-i)
+default
+default
+default
+default
+-do_global -do_progressive blosum80_trunc.mat
+default
+
+Programs with * employ pairwise alignment information when calculating multiple alignment. Parameters or options of each program other than the
+gap penalty ones are chosen to obtain as accurate an alignment as possible.
+
+1 is further divided into two sub-references based on
+sequence identities. Although the previous BAliBASE version 2.01 has been widely used, it had a problem that
+some sequences were trimmed off non-homologous
+regions [26]. Therefore, two test sets are prepared in BAliBASE version 3.0: full length set and homologous region
+set. Each sequence in the full length set is not trimmed off
+non-homologous regions, whereas the homologous
+region set consists of alignments of trimmed sequences
+and hence corresponds to the previous BAliBASE. However, reference 4 is excluded from the homologous region
+set due to its objective.
+Alignment evaluation based on BAliBASE
+To evaluate alignment accuracy based on BAliBASE, we
+use sum-of-pairs and column scores [14]. The sum-ofpairs score (SPS) is defined as the proportion of correctly
+aligned residue pairs:
+
+∑ i=1 SPit ,
+SPS =
+J
+∑ j=1 SPjr
+I
+
+where I and J are the number of columns of test and reference alignments, respectively. SPit is defined as:
+
+SPit =
+
+∑
+
+1≤m<n≤ N
+
+pi (m, n).
+
+If aligned residue pair ami and ani of the test alignment also
+exists in the reference alignment, Pi(m, n) = 1. Otherwise,
+pi(m, n) = 0. SPjr is the total number of aligned pairs on
+column j of the reference alignment. The column score
+(CS) represents the proportion of correctly aligned columns:
+
+CS =
+
+1 I
+∑ ci .
+J i =1
+
+If the column of the test alignment is identical to the i-th
+column of the reference alignment, ci = 1.
+Otherwise, ci = 0.
+PREFAB
+PREFAB is another MSA benchmark. Each alignment of
+PREFAB is generated automatically, while that of BAliBASE is constructed by human expertise. PREFAB consists
+of three data sets: main, long gap, and weighting sets. The
+main set corresponds to the previous PREFAB version 3.0,
+which is not categorized unlike BAliBASE. Each alignment
+of the long gap set, a subset of the main set, contains one
+or more gaps whose lengths are more than 10. The weighting set involves alignments each of which includes more
+sequences of one sub-family than that of the other subfamilies. Whereas each reference alignment of BAliBASE is
+provided as an MSA, each reference alignment of PREFAB
+
+Table 2: BAliBASE version 3.0 contents
+
+no. of alignments characteristic of alignment
+Reference 1.1
+Reference 1.2
+Reference 2
+Reference 3
+Reference 4
+Reference 5
+
+37
+42
+39
+29
+48
+14
+
+phylogenetically equidistant (less than 20% identity)
+phylogenetically equidistant (20 to 40% identity)
+families including orphan sequences
+equidistant families (less than 25% identity)
+long N/C terminal extensions (excluded from homologous region set)
+long internal insertions
+
+Page 9 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+is provided as a pairwise alignment of a pair of PDB
+sequences of known structures.
+Alignment evaluation based on PREFAB
+For alignment evaluation of PREFAB, the quality score is
+employed, which measures only two PDB sequences
+within each alignment. The quality score (QS) is the ratio
+of correctly aligned residue pairs of the reference pairwise
+
+1 J
+alignment: QS = ∑ i =1 pi , where J is the number of resJ
+idue pairs in the reference alignment. If the residue pair of
+the test alignment is also aligned in the reference alignment, pi = 1. Otherwise, pi = 0. Note that if the reference
+alignment is pairwise alignment, quality score, sum-ofpairs score, and column score have the same value.
+Results of BAliBASE benchmark test
+Full length set
+The average sum-of-pairs and column scores of the full
+length set are shown in Tables 3 and 4, respectively. The
+last columns of both tables are the rank sum of the Friedman test. The program with the smallest rank sum means
+that the program consistently constructs the most accurate
+alignments even if it does not achieve the largest average
+score. The p-values of the Friedman test are shown in the
+additional file [see Additional file 2]. The Friedman test
+indicates that the tested programs are classified into three
+groups according to their performances. The most accurate group consists of PRIMEpiecewise, PRIMEaffine, MAFFT,
+ProbCons, and T-Coffee. The second most accurate one is
+Prrn and MUSCLE. The accuracies of DIALIGN-T, POA,
+and ClustalW are comparable to each other but are significantly lower than those of Prrn and MUSCLE. Figure 2
+shows the performance difference between PRIMEpiecewise
+and PRIMEaffine. In this figure, we plot the difference in
+alignment scores of PRIMEpiecewise and PRIMEaffine. A positive difference score means that PRIMEpiecewise constructs
+more accurate alignments than PRIMEaffine, and vice versa.
+Although the difference is not statistically significant,
+PRIMEpiecewise shows better performance than PRIMEaffine,
+as expected.
+Homologous region set
+The average sum-of-pairs and column scores of the
+homologous region set are shown in Tables 5 and 6,
+respectively. The p-values of the Friedman test are shown
+in the additional file [see Additional file 3]. Unlike the
+results of the full length set, little difference in accuracy
+was detected between PRIMEpiecewise and PRIMEaffine. Figure
+3 shows the performance difference between them.
+Because the terminal non-homologous regions trimmed
+off in the homologous region set are usually long, for the
+full length set, the piecewise linear gap cost treats the long
+terminal gaps more effectively than the affine gap cost,
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+and hence PRIMEpiecewise shows better performance than
+PRIMEaffine. However, because the difference between
+these gap costs is relatively small in the homologous
+region set, PRIMEpiecewise and PRIMEaffine show similar performance. The relative performance of the nine programs
+examined is nearly the same as that of the full length set
+in a statistical sense.
+Effects of non-homologous regions
+We examine the effects of non-homologous regions in
+more detail. The critical difference between the full length
+and homologous region sets is the existence of nonhomologous regions at N/C terminals. Therefore, the difference in alignment scores obtained by the same program
+for the corresponding members in the full length and
+homologous region sets indicates to what extent the program properly deals with terminal gaps. Figures 4 and 5
+show the average difference of sum-of-pairs and column
+scores between the full length and homologous region
+sets. Each difference score is calculated by subtracting the
+alignment score of the full length set from that of the
+homologous region set. A positive difference score means
+that the non-homologous regions adversely affect alignment accuracy, whereas a negative score indicates
+improvement in alignment accuracy due to the presence
+of such regions. If the score difference is close to 0, the
+program is considered to be robust against the nonhomologous regions. The results indicate that PRIMEpiecewise is less affected by such regions than PRIMEaffine. This
+follows the general tendency that terminal gaps reduce
+more significantly the accuracy of global alignment programs including Prrn, MUSCLE, POA, and ClustalW than
+that of MAFFT, ProbCons, and T-Coffee that incorporate
+local alignment information in some ways. These observations indicate that PRlMEpiecewise deals with terminal gaps
+better than conventional global MSA programs, although
+not as well as those incorporating local alignment information.
+Results of PREFAB benchmark test
+The average quality scores of the three sets of PREFAB are
+shown in Table 7. The overall tendencies of relative performances and the Friedman tests of the main and long
+gap sets are nearly the same as those of BAliBASE. However, in the case of the weighting set, all programs except
+POA are comparable to each other. Because POA does not
+use sequence weights, 'biased sub-family composition'
+might adversely affect the performance of POA compared
+with the other programs.
+Computation time
+The computation time of each program for executing the
+benchmarks is compiled in Table 8. The computer we
+used is Pentium3 933 MHz with 1 GB memory, running
+on RedHat Linux 7.3. PRIMEpiecewise and PRIMEaffine are
+
+Page 10 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+1.000
+
+Score difference
+
+0.500
+
+0.000
+
+-0.500
+
+-1.000
+Ref. 1.1
+
+Ref. 1.2
+Ref. 2
+Ref. 3
+Reference alignment ID (full length set)
+
+Sum-of-pairs score
+
+Ref. 4
+
+Ref. 5
+
+Column score
+
+Figure 2
+Score differences between PRIMEpiecewise and PRIMEaffine on full length set
+Score differences between PRIMEpiecewise and PRIMEaffine on full length set. The horizontal axis denotes reference
+alignment ID, and the vertical axis, the difference in sum-of-pairs or column scores on respective alignments of the full length
+set using PRIMEpiecewise and PRIMEaffine. A positive difference score of an alignment is an indication that PRIMEpiecewise shows better performance than PRIMEaffine for the alignment, and vice versa.
+
+Table 3: Average sum-of-pairs scores of full length set
+
+Ref. 1.1
+PRIMEpiecewise
+PRIMEaffine
+Prrn
+MAFFT
+ProbCons
+T-Coffee
+MUSCLE
+DIALIGN-T
+POA
+ClustalW
+
+Ref. 1.2
+
+Ref. 2
+
+Ref. 3
+
+Ref. 4
+
+Ref. 5
+
+Overall
+
+0.643
+0.635
+0.574
+0.671
+0.648
+0.613
+0.570
+0.489
+0.474
+0.497
+
+0.933
+0.931
+0.923
+0.938
+0.942
+0.933
+0.909
+0.888
+0.857
+0.864
+
+0.922
+0.898
+0.901
+0.923
+0.905
+0.916
+0.888
+0.859
+0.857
+0.848
+
+0.859
+0.851
+0.820
+0.852
+0.835
+0.826
+0.808
+0.744
+0.733
+0.722
+
+0.910
+0.882
+0.859
+0.918
+0.887
+0.900
+0.857
+0.817
+0.805
+0.786
+
+0.882
+0.871
+0.821
+0.892
+0.879
+0.858
+0.839
+0.780
+0.754
+0.713
+
+0.861
+0.846
+0.821
+0.868
+0.851
+0.846
+0.815
+0.768
+0.753
+0.748
+
+Ranksum
+809
+912
+1055
+656
+764
+884
+1260
+1668
+1804
+1682
+
+Each column shows average sum-of-pairs scores using all alignments of each reference of the full length set. Overall and Ranksum columns show the
+average sum-of-pairs scores and the rank sum of the Friedman test using all alignment of the whole full length set, respectively. A smaller rank sum
+means better accuracy.
+
+Page 11 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+Table 4: Average column scores of full length set
+
+Ref. 1.1
+PEIMEpiecewise
+PRIMEaffine
+Prrn
+MAFFT
+ProbCons
+T-Coffee
+MUSCLE
+DIALIGN-T
+POA
+ClustalW
+
+Ref. 1.2
+
+Ref. 2
+
+Ref. 3
+
+Ref. 4
+
+Ref. 5
+
+Overall
+
+0.416
+0.391
+0.334
+0.449
+0.401
+0.324
+0.313
+0.246
+0.224
+0.221
+
+0.839
+0.826
+0.791
+0.839
+0.851
+0.832
+0.795
+0.723
+0.678
+0.707
+
+0.445
+0.413
+0.406
+0.436
+0.374
+0.384
+0.343
+0.290
+0.265
+0.219
+
+0.566
+0.539
+0.469
+0.560
+0.462
+0.459
+0.380
+0.347
+0.343
+0.271
+
+0.573
+0.483
+0.491
+0.607
+0.530
+0.563
+0.460
+0.462
+0.413
+0.404
+
+0.552
+0.496
+0.411
+0.544
+0.509
+0.534
+0.408
+0.389
+0.323
+0.237
+
+Ranksum
+
+0.572
+0.531
+0.499
+0.583
+0.532
+0.525
+0.465
+0.423
+0.389
+0.368
+
+846
+958
+1080
+759
+847
+1017
+1246
+1554
+1690
+1497
+
+Each column shows average column scores using all alignments of each reference of the full length set. Overall and Ranksum columns show the
+average column scores and the rank sum of the Friedman test using all alignment of the whole full length set, respectively. A smaller rank sum
+means better accuracy.
+
+1.000
+
+Score difference
+
+0.500
+
+0.000
+
+-0.500
+
+-1.000
+Ref. 1.1
+
+Ref. 1.2
+Ref. 2
+Reference alignment ID (homologous region set)
+
+Sum-of-pairs score
+
+Ref. 3
+
+Ref. 5
+
+Column score
+
+Figure 3
+Score differences between PRIMEpiecewise and PRIMEaffine on homologous region set
+Score differences between PRIMEpiecewise and PRIMEaffine on homologous region set. The horizontal axis denotes
+reference alignment ID, and the vertical axis, the difference in sum-of-pairs or column scores on respective alignments of the
+homologous region set using PRIMEpiecewise and PRIMEaffine. A positive difference score of an alignment is an indication that
+PRIMEpiecewise shows better performance than PRIMEaffine for the alignment, and vice versa.
+
+Page 12 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+Table 5: Average sum-of-pairs scores of homologous region set
+
+Ref. 1.1
+PRIMEpiecewise
+PRIMEaffine
+Prrn
+MAFFT
+ProbCons
+T-Coffee
+MUSCLE
+DIALIGN-T
+POA
+ClustalW
+
+Ref. 1.2
+
+Ref. 2
+
+Ref. 3
+
+Ref. 5
+
+Overall
+
+0.772
+0.781
+0.763
+0.753
+0.788
+0.704
+0.735
+0.573
+0.634
+0.664
+
+0.940
+0.938
+0.936
+0.940
+0.953
+0.939
+0.931
+0.901
+0.877
+0.905
+
+0.955
+0.954
+0.954
+0.946
+0.953
+0.940
+0.943
+0.897
+0.923
+0.922
+
+0.903
+0.907
+0.894
+0.890
+0.910
+0.878
+0.882
+0.793
+0.822
+0.816
+
+0.891
+0.896
+0.887
+0.897
+0.907
+0.888
+0.870
+0.821
+0.800
+0.788
+
+0.894
+0.897
+0.889
+0.886
+0.904
+0.870
+0.875
+0.798
+0.816
+0.827
+
+Ranksum
+613
+634
+698
+654
+489
+821
+907
+1406
+1370
+1263
+
+Each column shows average sum-of-pairs scores using all alignments of each reference of the homologous region set. Overall and Ranksum columns
+show the average sum-of-pairs scores and the rank sum of the Friedman test using all alignment of the whole homologous region set, respectively.
+A smaller rank sum means better accuracy.
+
+somewhat slower than most programs tested. The computational speed would be significantly improved by incorporating anchoring heuristics and refining source codes.
+
+Discussions and Conclusion
+The group-to-group sequence alignment algorithm is the
+key to most heuristic MSA algorithms. Although many
+group-to-group sequence alignment algorithms focus on
+position-specific gap opening penalties [7,8,10,12], they
+use essentially a constant gap extension penalty similar to
+that of the affine gap cost. For global MSA algorithms, use
+of the constant gap extension penalty could lead to deterioration of alignment accuracy when some of the
+sequences to be aligned have long indels. To our knowledge, POA version 2 [5] is the sole precedent that incorporates length-dependent gap extension penalties into the
+group-to-group sequence alignment algorithm. Examination of POA with various options indicated that lengthdependent gap extension penalties with global alignment
+strategy are effective to improve alignment accuracy when
+some of the sequences to be aligned have long indels
+(data not shown).
+
+In this paper, we proposed a novel group-to-group
+sequence alignment algorithm with the piecewise linear
+gap cost, and developed a program called PRIME. The
+advantage of using the piecewise linear gap cost is that this
+gap cost more accurately models the occurrence of long
+gap in a simple way than other gap cost does. As a result
+of BAliBASE benchmark test, PRIME achieved alignment
+accuracies comparable to the most accurate programs
+available today including L-INS-i of MAFFT, ProbCons,
+and T-Coffee. Unlike others, PRIME does not rely on pairwise alignment information. This implies that the introduction of length-dependent gap extension penalties
+could contribute to improving the alignment accuracy
+even when pairwise alignment information is not used.
+It should be noted that our proposed algorithm has two
+inherent drawbacks. First, it is considerably slower than
+many popular algorithms. Second, selecting the parameters of the piecewise linear gap cost is somewhat more
+complicated than that of the affine gap cost. However,
+these drawbacks would not be serious enough to reduce
+the advantages of our proposed algorithm and PRIME.
+
+Table 6: Average column scores of homologous region set
+
+Ref. 1.1
+PEIMEpiecewise
+PRIMEaffine
+Prrn
+MAFFT
+ProbCons
+T-Coffee
+MUSCLE
+DIALIGN-T
+POA
+ClustalW
+
+Ref. 1.2
+
+Ref. 2
+
+Ref. 3
+
+Ref. 5
+
+Overall
+
+0.588
+0.589
+0.561
+0.552
+0.591
+0.476
+0.496
+0.338
+0.390
+0.416
+
+0.849
+0.847
+0.834
+0.846
+0.875
+0.840
+0.823
+0.761
+0.712
+0.791
+
+0.595
+0.582
+0.601
+0.532
+0.540
+0.491
+0.496
+0.370
+0.424
+0.443
+
+0.636
+0.648
+0.630
+0.631
+0.625
+0.625
+0.574
+0.452
+0.459
+0.475
+
+0.575
+0.593
+0.558
+0.578
+0.583
+0.540
+0.501
+0.429
+0.371
+0.394
+
+0.665
+0.666
+0.654
+0.640
+0.658
+0.607
+0.596
+0.485
+0.493
+0.529
+
+Ranksum
+640
+640
+708
+670
+548
+822
+946
+1339
+1348
+1193
+
+Each column shows average column scores using all alignments of each reference of the homologous region set. Overall and Ranksum columns
+show the average column scores and the rank sum of the Friedman test using all alignment of the whole homologous region set, respectively. A
+smaller rank sum means better accuracy.
+
+Page 13 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+0.200
+
+Average sum-of-pairs score differences
+
+0.180
+0.160
+0.140
+0.120
+0.100
+0.080
+0.060
+0.040
+0.020
+0.000
+Ref. 1.1
+
+Ref. 1.2
+
+Ref. 2
+
+Ref. 3
+
+Ref. 5
+
+Overall
+
+BAliBASE reference
+PRIMEpcw
+PRIMEafn
+
+Prrn
+MAFFT
+
+ProbCons
+T-Coffee
+
+MUSCLE
+DIALIGN-T
+
+POA
+ClustalW
+
+Figure sum-of-pairs score differences between full length and homologous region sets
+Average4
+Average sum-of-pairs score differences between full length and homologous region sets. Each point means average
+sum-of-pairs score difference in respective alignments on each reference of the full length and homologous region sets.
+PRIMEpcw denotes PRIMEpiecewise, and PRIMEafn, PRIMEaffine. The smaller absolute value of a score indicates that the introduction
+of long terminal indels less affects the alignment accuracy of a program.
+
+Unlike most popular algorithms, PRIME can circumvent
+the time-consuming process for obtaining pairwise alignment information, and hence it is theoretically advantageous for aligning a large number of sequences. Our
+preliminary examination confirmed the expected dependency of computational time on the number of sequences
+to be aligned. However, the current version of PRIME is
+still slower than most of other programs over the examined range of the number of sequences (data not shown).
+One of the reasons is that the current PRIME does not use
+any heuristics, such as anchoring or grouping method
+used in Prrn, for reducing the computation. To improve
+calculation speed of PRIME without a loss of accuracy, we
+are attempting to incorporate these heuristics. To further
+improve alignment accuracy, we will investigate several
+problems including the conditions under which PRIMEaffine constructs more accurate alignment than PRIMEpiecewise,
+
+the potential of other objective functions, and the effect of
+incorporating pairwise alignment information.
+
+Availability and Requirements
+Project name: PRIME project
+Project home page: http://prime.cbrc.jp/
+Operating system(s): Platform independent
+Programming language: C++
+Licence: GNU GPL version 2 or later
+Any restrictions to use by non-academics: None
+
+Page 14 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+Table 7: Average quality scores of PREFAB
+
+Main
+
+Weighting
+
+Long gap
+
+QS
+PRIMEpiecewise
+PRIMEaffine
+Prrn
+MAFFT
+ProbCons
+T-Coffee
+MUSCLE
+DIALIGN-T
+POA
+ClustalW
+PSApiecewise
+PSAaffine
+
+Ranksum
+
+QS
+
+Ranksum
+
+QS
+
+Ranksum
+
+0.721
+0.718
+0.722
+0.722
+0.705
+0.700
+0.680
+0.621
+0.603
+0.617
+0.591
+0.581
+
+8151
+8355
+8120
+7744
+8659
+9126
+10446
+13277
+14662
+12952
+14525
+14789
+
+0.649
+0.637
+0.624
+0.639
+0.620
+0.627
+0.607
+0.587
+0.554
+0.603
+0.638
+0.621
+
+588
+617
+621
+585
+594
+584
+642
+754
+868
+650
+627
+670
+
+0.658
+0.651
+0.653
+0.660
+0.637
+0.631
+0.596
+0.541
+0.513
+0.519
+0.498
+0.489
+
+1408
+1504
+1455
+1352
+1443
+1640
+1918
+2506
+2789
+2583
+2804
+2856
+
+Each QS and Ranksum columns show the average quality scores and the rank sum of the Friedman test using quality scores on all alignments of each
+reference set, respectively. A smaller rank sum means better accuracy.
+Table 8: Computation time
+
+BAliBASE
+PRIMEpiecewise
+PRIMEaffine
+Prrn
+MAFFT
+ProbCons
+T-Coffee
+MUSCLE
+DIALIGN-T
+POA
+ClustalW
+
+PREFAB
+
+9.4 × 105
+4.9 × 105
+6.8 × 105
+1.9 × 104
+6.4 × 104
+7.2 × 105
+7.9 × 103
+3.0 × 104
+1.0 × 104
+8.3 × 103
+
+5.5 × 105
+4.3 × 105
+1.9 × 105
+2.7 × 104
+1.9 × 105
+2.0 × 106
+1.6 × 104
+1.2 × 105
+2.6 × 104
+2.7 × 104
+
+BAliBASE column shows total times (sec.) of constructing all alignments of the full length and homologous region sets by each program, while
+PREFAB column, those of calculating whole alignments of the main and weighting sets only.
+
+Page 15 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+0.250
+
+Average column score differences
+
+0.200
+
+0.150
+
+0.100
+
+0.050
+
+0.000
+Ref. 1.1
+
+Ref. 1.2
+
+Ref. 2
+
+Ref. 3
+
+Ref. 5
+
+Overall
+
+BAliBASE reference
+PRIMEpcw
+PRIMEafn
+
+Prrn
+MAFFT
+
+ProbCons
+T-Coffee
+
+MUSCLE
+DIALIGN-T
+
+POA
+ClustalW
+
+Figure column score differences between full length and homologous region sets
+Average5
+Average column score differences between full length and homologous region sets. Each point means average column score difference in respective alignments on each reference of the full length and homologous region sets. PRIMEpcw
+denotes PRIMEpiecewise, and PRIMEafn, PRIMEaffine. The smaller absolute value of a score indicates that the introduction of long
+terminal indels less affects the alignment accuracy of a program.
+
+Authors' contributions
+SY devised the proposed algorithms, implemented
+PRIME, carried out the benchmark test and its evaluation,
+and drafted the manuscript. OG conceived of the study,
+devised the proposed algorithms, helped to implement
+PRIME, and drafted the manuscript. HY participated in
+the design and coordination of the study, and helped to
+implement PRIME. All authors read and approved the
+final manuscript.
+
+Additional material
+Additional File 1
+PRIME source code. This tar.gz archive includes the source files of
+PRIME. To compile PRIME, one can check 'INSTALL' and 'Makefile' in
+the archive. Although 'Makefile' basically assumes GNU make and g+ +,
+another compiler can be used with a few modification of 'Makefile'.
+Click here for file
+[http://www.biomedcentral.com/content/supplementary/14712105-7-524-S1.gz]
+
+Page 16 of 17
+(page number not for citation purposes)
+
+BMC Bioinformatics 2006, 7:524
+
+http://www.biomedcentral.com/1471-2105/7/524
+
+10.
+
+Additional File 2
+p-values of the Friedman test of full length set. Each value is p-value
+of the Friedman test, indicating the significance of a difference in performance between programs of a row and a column. The upper right and
+lower left p-values are calculated using sum-of-pairs and column scores on
+all alignments of the whole full length set, respectively. PRIMEpcw denotes
+PRIMEpiecewise, and PRIMEafn, PRIMEaffine. The respective signs + and denote that a program of a row performs significantly better and worse
+than that of a column.
+Click here for file
+[http://www.biomedcentral.com/content/supplementary/14712105-7-524-S2.pdf]
+
+Additional File 3
+p-values of the Friedman test of homologous region set. Each value is
+p-value of the Friedman test, indicating the significance of a difference in
+performance between programs of a row and a column. The upper right
+and lower left p-values are calculated using sum-of-pairs and column
+scores on all alignments of the whole homologous region set, respectively.
+PRIMEpcw denotes PRIMEpiecewise, and PRIMEafn, PRIMEaffine. The
+respective signs + and - denote that a program of a row performs significantly better and worse than that of a column.
+Click here for file
+[http://www.biomedcentral.com/content/supplementary/14712105-7-524-S3.pdf]
+
+11.
+
+12.
+13.
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+21.
+22.
+
+Acknowledgements
+This work was partially supported by a Grant-in-Aid for Scientific Research
+on Priority Areas (C) "Genome Information Science" from the Ministry of
+Education, Culture, Sports, Science and Technology of Japan; and by the
+Institute for Bioinformatics Research and Development (BIRD) of Japan Science and Technology Agency (JST).
+
+References
+1.
+2.
+3.
+
+4.
+5.
+
+6.
+7.
+
+8.
+9.
+
+Gotoh O: Multiple sequence alignment: algorithms and applications. Adv Biophys 1999, 36:159-206.
+Notredame C: Recent progress in multiple sequence alignment: a survey. Pharmacogenomics 2002, 3:131-144.
+Gotoh O, Yamada S, Yada T: Multiple sequence alignment. In
+Handbook of computational molecular biology, Computer and Information
+Science Series Edited by: Aluru S. Chapman & Hall/CRC; 2005:3–1-3–
+36.
+Jiang T, Wang L: Algorithmic methods for multiple sequence
+alignment. In Current topics in computational molecular biology Edited
+by: Jiang T, Xu Y, Zhang MQ. Tsinghua University Press; 2002.
+Grasso C, Lee C: Combining partial order alignment and progressive multiple sequence alignment increases alignment
+speed and scalability to very large alignment problems. Bioinformatics 2004, 20:1546-1556.
+Notredame C, Higgins DG, Heringa J: T-Coffee: A novel method
+for fast and accurate multiple sequence alignment. J Mol Biol
+2000, 302:205-217.
+Thompson JD, Higgins DG, Gibson TJ: CLUSTAL W: improving
+the sensitivity of progressive multiple sequence alignment
+through sequence weighting, position-specific gap penalties
+and weight matrix choice. Nucleic Acids Res 1994, 22:4673-4680.
+Edgar RC: MUSCLE: multiple sequence alignment with high
+accuracy and high throughput.
+Nucleic Acids Res 2004,
+32:1792-1797.
+Gotoh O: Significant improvement in accuracy of multiple
+protein sequence alignments by iterative refinement as
+assessed by reference to structural alignments. J Mol Biol 1996,
+264:823-838.
+
+23.
+24.
+25.
+26.
+27.
+
+28.
+
+Katoh K, Misawa K, Kuma K, Miyata T: MAFFT: a novel method
+for rapid multiple sequence alignment based on fast Fourier
+transform. Nucleic Acids Res 2002, 30:3059-3066.
+Kececioglu J, Starrett D: Aligning alignments exactly. In Proceedings of the Eighth Annual International Conference on Research in Computational Molecular Biology: 27–31 March 2004 Edited by: Bourne PE. San
+Diego, ACM; 2004:85-96.
+Gotoh O: Optimal alignment between groups of sequences
+and its application to multiple sequence alignment. Comput
+Appl Biosci 1993, 9:361-370.
+McClure MA, Vasi TK, Fitch WM: Comparative analysis of multiple protein-sequence alignment methods. Mol Biol Evol 1994,
+11:571-592.
+Thompson JD, Plewniak F, Poch O: A comprehensive comparison of multiple sequence alignment programs. Nucleic Acids
+Res 1999, 27:2682-2690.
+Katoh K, Kuma K, Toh H, Miyata T: MAFFT version 5: improvement in accuracy of multiple sequence alignment. Nucleic
+Acids Res 2005, 33:511-518.
+Do CB, Mahabhashyam MSP, Brudno M, Batzoglou S: ProbCons:
+Probabilistic consistency-based multiple sequence alignment. Genome Res 2005, 15:330-340.
+Miller W, Myers EW: Sequence comparison with concave
+weighting functions. Bull Math Biol 1988, 50:97-120.
+Gotoh O: Optimal sequence alignment allowing for long gaps.
+Bull Math Biol 1990, 52:359-373.
+Gotoh O: Further improvement in methods of group-togroup sequence alignment with generalized profile operations. Comput Appl Biosci 1994, 10:379-387.
+Gotoh O: A weighting system and algorithm for aligning
+many phylogenetically related sequences. Comput Appl Biosci
+1995, 11:543-551.
+Gotoh O: An improved algorithm for matching biological
+sequences. J Mol Biol 1982, 162:705-708.
+Bahr A, Thompson JD, Thierry JC, Poch O: BAliBASE (Benchmark Alignment dataBASE): enhancements for repeats,
+transmembrane sequences and circular permutations.
+Nucleic Acids Res 2001, 29:323-326.
+Thompson JD, Koehl P, Ripp R, Poch O: BAliBASE 3.0: Latest
+developments of the multiple sequence alignment benchmark. Proteins 2005, 61:127-136.
+PRIME [http://prime.cbrc.jp/]
+Thompson JD, Plewniak F, Poch O: BAliBASE: a benchmark
+alignment database for the evaluation of multiple alignment
+programs. Bioinformatics 1999, 15:87-88.
+Karplus K, Hu B: Evaluation of protein multiple alignments by
+SAM-T99 using the BAliBASE multiple alignment test set.
+Bioinformatics 2001, 17:713-720.
+O'Sullivan O, Suhre K, Abergel C, Higgins DG, Notredame C:
+3DCoffee: combining protein sequences and structures
+within multiple sequence alignments.
+J Mol Biol 2004,
+340:385-395.
+Subramanian AR, Weyer-Menkhoff J, Kaufmann M, Morgenstern B:
+DIALIGN-T: an improved algorithm for segment-based multiple sequence alignment. BMC Bioinformatics 2005, 6:66.
+
+Publish with Bio Med Central and every
+scientist can read your work free of charge
+"BioMed Central will be the most significant development for
+disseminating the results of biomedical researc h in our lifetime."
+Sir Paul Nurse, Cancer Research UK
+
+Your research papers will be:
+available free of charge to the entire biomedical community
+peer reviewed and published immediately upon acceptance
+cited in PubMed and archived on PubMed Central
+yours — you keep the copyright
+
+BioMedcentral
+
+Submit your manuscript here:
+http://www.biomedcentral.com/info/publishing_adv.asp
+
+Page 17 of 17
+(page number not for citation purposes)
+
+</pre>
+</body>
+</html>

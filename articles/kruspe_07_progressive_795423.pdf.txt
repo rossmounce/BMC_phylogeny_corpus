@@ -1,0 +1,1260 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>1471-2105-8-254.fm</title>
+<meta name="Author" content="petere"/>
+<meta name="Creator" content="FrameMaker 7.0"/>
+<meta name="Producer" content="Acrobat Distiller 7.0 (Windows)"/>
+<meta name="CreationDate" content=""/>
+</head>
+<body>
+<pre>
+BMC Bioinformatics
+
+BioMed Central
+
+Open Access
+
+Methodology article
+
+Progressive multiple sequence alignments from triplets
+Matthias Kruspe1 and Peter F Stadler*1,2,3,4
+Address: 1Bioinformatics Group, Department of Computer Science and Interdisciplinary Center for Bioinformatics, University of Leipzig,
+Härtelstraße 16-18, D-04107 Leipzig, Germany, 2Fraunhofer Institut für Zelltherapie und Immunologie (IZI), Deutscher Platz 5e, D-04103
+Leipzig, Germany, 3Institute for Theoretical Chemistry, University of Vienna, Währingerstraße 17, A-1090 Wien, Austria and 4Santa Fe Institute,
+1399 Hyde Park Rd., Santa Fe, NM 87501, USA
+Email: Matthias Kruspe - matthias@bioinf-uni-leipzig.de; Peter F Stadler* - studla@bioinf.uni-leipzig.de
+* Corresponding author
+
+Published: 15 July 2007
+BMC Bioinformatics 2007, 8:254
+
+doi:10.1186/1471-2105-8-254
+
+Received: 5 November 2006
+Accepted: 15 July 2007
+
+This article is available from: http://www.biomedcentral.com/1471-2105/8/254
+© 2007 Kruspe and Stadler; licensee BioMed Central Ltd.
+This is an Open Access article distributed under the terms of the Creative Commons Attribution License (http://creativecommons.org/licenses/by/2.0),
+which permits unrestricted use, distribution, and reproduction in any medium, provided the original work is properly cited.
+
+Abstract
+Background: The quality of progressive sequence alignments strongly depends on the accuracy
+of the individual pairwise alignment steps since gaps that are introduced at one step cannot be
+removed at later aggregation steps. Adjacent insertions and deletions necessarily appear in
+arbitrary order in pairwise alignments and hence form an unavoidable source of errors.
+Research: Here we present a modified variant of progressive sequence alignments that addresses
+both issues. Instead of pairwise alignments we use exact dynamic programming to align sequence
+or profile triples. This avoids a large fractions of the ambiguities arising in pairwise alignments. In
+the subsequent aggregation steps we follow the logic of the Neighbor-Net algorithm, which
+constructs a phylogenetic network by step-wisely replacing triples by pairs instead of combining
+pairs to singletons. To this end the three-way alignments are subdivided into two partial alignments,
+at which stage all-gap columns are naturally removed. This alleviates the "once a gap, always a gap"
+problem of progressive alignment procedures.
+Conclusion: The three-way Neighbor-Net based alignment program aln3nn is shown to compare
+favorably on both protein sequences and nucleic acids sequences to other progressive alignment
+tools. In the latter case one easily can include scoring terms that consider secondary structure
+features. Overall, the quality of resulting alignments in general exceeds that of clustalw or other
+multiple alignments tools even though our software does not included heuristics for context
+dependent (mis)match scores.
+
+1 Background
+(The software is freely available for download from reference [1])
+High quality multiple sequence alignments (MSAs) are a
+prerequisite for many applications in bioinformatics,
+from the reconstruction of phylogenies and the assessment of evolutionary rate variations to gene finding and
+phylogenetic footprinting. A large part of comparative
+
+genomics thus hinges on our ability to construct accurate
+MSAs. Since the multiple sequence alignment problem is
+NP hard [2] with the computational cost growing exponentially with the number of sequences, it has been a
+long-standing challenge to devise approximation algorithms that are both efficient and accurate. These
+approaches can be classified into progressive, iterative,
+and stochastic alignment algorithms. The most widely
+used tools such as clustalw [3] and pileup utilize the proPage 1 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+gressive method that was at first introduced in [4,5]. This
+approach makes explicit use of the evolutionary relatedness of the sequences to build the alignment. The complete multiple sequence alignment of the given sequences
+is calculated from pairwise alignments of previous aligned
+sequences by following the branching order of a pre-computed "guide" tree, which reflects (at least approximately)
+the evolutionary history of the input sequences. It is typically reconstructed from pairwise sequence distances by
+some clustering method such as Neighbor-Joining [6] or
+UPGMA [7]. Progressive sequence alignments, while computationally efficient, suffer from two major shortcomings. First, they are of course not guaranteed to find the
+optimal alignment. Pairwise comparisons necessarily utilize only a small part of the information that is potentially
+available in the complete data set. In particular, the relative placement of adjacent insertions and deletions leads
+to score-equivalent alignments among which the algorithm chooses one by means of a pragmatic rule (e.g.
+"Always make insertions before deletions"). At a later
+aggregation step, when profiles are aligned to sequences
+or with each other, these alternative are no longer equivalent. Secondly, in contrast to other techniques, there is no
+mechanism to identify errors that have been made in previous steps and to correct them during later stages.
+In this contribution we present a novel approach to progressive sequence alignment that alleviates both shortcomings at the expense of utilizing an exact algorithm to
+compute alignment of sequence and profile triples.
+Instead of using a single guide tree, we follow here the
+logic of phylogenetic networks as constructed by the
+Neighbor-Net algorithm [8] which calls for an aggregation
+step that constructs pairs from triples. As this requires us
+to subdivide 3-way alignments into pairs of alignments, it
+provides a chance for the removal of erroneously inserted
+gaps at later aggregation steps.
+The contribution is organized as follows: In the following
+section we outline the algorithms aspects of our approach.
+Furthermore we describe a straightforward way of incorporating RNA secondary information. Section 3 summarizes benchmark data in comparison to other multiple
+alignment tools. We conclude with a brief discussion of
+future improvements.
+
+2 Methods
+2.1 Dynamic Programming
+The basic dynamic programming scheme for pairwise
+sequence comparison, known as the Needleman-Wunsch
+algorithm [9] requires quadratic space and time. It easily
+translates to a cubic space and time algorithms for three
+sequences. Biologically plausible sequence alignment,
+however, require the use of non-trivial gap cost functions.
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+While cubic time algorithms are available for arbitrary gap
+costs [10], affine gap costs (with a much higher penalty for
+opening a new gap than for extending an existing one) in
+general yield good results already. In this contribution we
+therefore use an affine gap cost model. Gotoh's algorithm
+solves this problem with quadratic CPU and memory
+requirements for two sequences [11]. The same author
+also described a dynamic programming scheme for the
+alignment of three sequences with affine gap costs [12]
+that requires  (n3) time and space, which we use here
+with minor modifications.
+Let A, B, and C denote the three sequences. We use Ai, Bj,
+and Ck to refer to the ith, jth, and kth position in A, B, and
+C, respectively, counting from 1. As usual, '-' denotes the
+gap character. Scores for the alignment of two or three
+non-gap characters are denoted by S(α, β) and S(α, β, γ),
+resp. Gap penalties are determined from gap open (go)
+and gap extensions (ge) scores. The best score of the alignments of the prefixes Ai, Bj, and Ck is denoted by M(i, j, k)
+if the residues (Ai, Bj, Ck) are aligned; Ixy(i, j, k) the best
+score given that (Ai, Bj,-) is the last column of the partial
+alignment, and Ix(i, j, k) the best score given that the last
+column is of the form (Ai, -, -). Ixz(i, j, k), Iyz(i, j, k), Iy(i, j,
+k), and Iz(i, j, k) are defined analogously. It is not hard to
+verify that these quantities must satisfy the recursions
+summarized in Fig. 1. While the algorithm would in principle allow us to use arbitrary three residue substitution
+scores S(a, b, c) as described by [13], we restrict ourselves
+to the sum-of-pairs model S(a, b, c) = S(a, b) + S(a, c) + S(b,
+c).
+As in the case of pairwise sequence alignments, the recursions immediately generalize to alignments of profiles so
+that a single sequence becomes a special case of a profile.
+Match and gap scores are simply added up over all triples
+of sequences, one from each profile.
+The resource requirements of this algorithm, in particular
+the cubic memory consumption, are acceptable only for
+relative small sequence lengths n even on modern workstations. Several approaches have been explored in the
+past to reduce the search space so that long sequences can
+be dealt with, see e.g. [14-16].
+We utilized here the Divide-&-Conquer approach
+described by [17] to limit both space and time requirements. Input sequences that exceed a given threshold
+length l are subsequently subdivided into smaller
+sequences until the length criterion is fulfilled. The partial
+sequences are aligned separately and the emerging alignments are concatenated afterward. The result is an approximate solution of the global multiple sequence alignment
+problem. The choice of the threshold length depends on
+Page 2 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+M (i, j, k) =
+
+Ixy (i, j, k) =
+
+Ixz (i, j, k) =
+
+Iyz (i, j, k) =
+
+Ix (i, j, k) =
+
+Iy (i, j, k) =
+
+Iz (i, j, k) =
+
+⎧
+⎪ M (i − 1, j − 1, k − 1) + S(Ai , Bj , Ck )
+⎪
+⎪
+⎪ Ixy (i − 1, j − 1, k − 1) + S(Ai , Bj , Ck )
+⎪
+⎪
+⎪
+⎪ Ixz (i − 1, j − 1, k − 1) + S(Ai , Bj , Ck )
+⎨
+Iyz (i − 1, j − 1, k − 1) + S(Ai , Bj , Ck )
+max
+⎪
+⎪ Ix (i − 1, j − 1, k − 1) + S(Ai , Bj , Ck )
+⎪
+⎪
+⎪
+⎪ Iy (i − 1, j − 1, k − 1) + S(Ai , Bj , Ck )
+⎪
+⎪
+⎩
+Iz (i − 1, j − 1, k − 1) + S(Ai , Bj , Ck )
+⎧
+⎪ M (i − 1, j − 1, k) − go + S(Ai , Bj )
+⎪
+⎪
+⎪ Ixy (i − 1, j − 1, k) − ge + S(Ai , Bj )
+⎪
+⎪
+⎪
+⎪
+⎨ Ixz (i − 1, j − 1, k) − go + S(Ai , Bj )
+Iyz (i − 1, j − 1, k) − go + S(Ai , Bj )
+max
+⎪
+⎪ Ix (i − 1, j − 1, k) − ge + S(Ai , Bj )
+⎪
+⎪
+⎪
+⎪ Iy (i − 1, j − 1, k) − ge + S(Ai , Bj )
+⎪
+⎪
+⎩
+Iz (i − 1, j − 1, k) − go + S(Ai , Bj )
+⎧
+⎪ M (i − 1, j, k − 1) − go + S(Ai , Ck )
+⎪
+⎪
+⎪ Ixy (i − 1, j, k − 1) − go + S(Ai , Ck )
+⎪
+⎪
+⎪
+⎪
+⎨ Ixz (i − 1, j, k − 1) − ge + S(Ai , Ck )
+Iyz (i − 1, j, k − 1) − go + S(Ai , Ck )
+max
+⎪
+⎪ Ix (i − 1, j, k − 1) − ge + S(Ai , Ck )
+⎪
+⎪
+⎪
+⎪ Iy (i − 1, j, k − 1) − go + S(Ai , Ck )
+⎪
+⎪
+⎩
+Iz (i − 1, j, k − 1) − ge + S(Ai , Ck )
+⎧
+⎪ M (i − 1, j − 1, k) − go + S(Bj , Ck )
+⎪
+⎪
+⎪ Ixy (i − 1, j − 1, k) − go + S(Bj , Ck )
+⎪
+⎪
+⎪
+⎪ Ixz (i − 1, j − 1, k) − go + S(Bj , Ck )
+⎨
+Iyz (i − 1, j − 1, k) − ge + S(Bj , Ck )
+max
+⎪
+⎪ Ix (i − 1, j − 1, k) − go + S(Bj , Ck )
+⎪
+⎪
+⎪
+⎪ Iy (i − 1, j − 1, k) − ge + S(Bj , Ck )
+⎪
+⎪
+⎩
+Iz (i − 1, j − 1, k) − ge + S(Bj , Ck )
+⎧
+⎪ M (i − 1, j, k) − 2go
+⎪
+⎪
+⎪
+⎪ Ixy (i − 1, j, k) − go − ge
+⎪
+⎪
+⎪
+⎨ Ixz (i − 1, j, k) − ge − go
+max
+Iyz (i − 1, j, k) − 2go
+⎪
+⎪ Ix (i − 1, j, k) − 2ge
+⎪
+⎪
+⎪
+⎪ Iy (i − 1, j, k) − go − ge
+⎪
+⎪
+⎩
+Iz (i − 1, j, k) − ge − go
+⎧
+⎪ M (i, j − 1, k) − 2go
+⎪
+⎪
+⎪
+⎪ Ixy (i, j − 1, k) − go − ge
+⎪
+⎪
+⎪
+⎨ Ixz (i, j − 1, k) − 2go
+Iyz (i, j − 1, k) − ge − go
+max
+⎪
+⎪ Ix (i, j − 1, k) − go − ge
+⎪
+⎪
+⎪
+⎪ Iy (i, j − 1, k) − 2ge
+⎪
+⎪
+⎩
+Iz (i, j − 1, k) − ge − go
+⎧
+⎪ M (i, j, k − 1) − 2go
+⎪
+⎪
+⎪ Ixy (i, j, k − 1) − 2go
+⎪
+⎪
+⎪
+⎪ Ixz (i, j, k − 1) − go − ge
+⎨
+Iyz (i, j, k − 1) − ge − go
+max
+⎪
+⎪ Ix (i, j, k − 1) − go − ge
+⎪
+⎪
+⎪
+⎪ Iy (i, j, k − 1) − ge − go
+⎪
+⎪
+⎩
+Iz (i, j, k − 1) − 2ge
+
+Figure 1
+Dynamic programming recursions for three-way alignments with affine gap costs
+Dynamic programming recursions for three-way alignments with affine gap costs. The empty alignments are initialized as M(0,
+0, 0) = 0 and I..(0,0,0) = 0. The boundaries of the cubic tables are initialized using the recursions above with the understanding
+that alternatives with negative indices are ignored.
+
+Page 3 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+sequence properties and the available amount of memory
+and CPU resources. For the following simulations we have
+chosen a length of l = 150. The methods described by
+[14,15] are known to produce optimal alignments but are
+much harder to implement.
+2.2 Alignment order
+The order in which sequences and profiles are aligned has
+an important influence on the performance of progressive
+alignment algorithms. In programs that are based on pairwise alignments such as clustalw or pileup, binary guide
+trees, which encapsulate at least an approximation to the
+phylogenetic relationships of the input sequences, are
+used to determine the alignment order. The input
+sequences form the leaves of this tree; each interior node
+corresponds to an alignment, so that the root of the guide
+tree represents the desired multiple alignment of all input
+sequences.
+
+Instead of a phylogenetic tree aln3nn uses a phylogenetic
+network to calculate the alignment order. The network is
+constructed using the Neighbor-Net (Nnet) approach, a
+distance based clustering algorithm that can be seen as a
+proper generalization of Neighbor-Joining [8,18]. The
+Nnet algorithm can be described as follows: The input
+sequences are represented as nodes that are all disconnected in the beginning. In each aggregation step, Nnet
+selects two nodes using a specific selection criterion such
+as minimal distance. In contrast to Neighbor-Joining, the
+two nodes are not paired immediately. Instead, Nnet
+waits until a node has been paired up a second time. Then
+the corresponding three linked nodes are replaced by two
+new linked nodes. As in the more familiar NJ algorithm,
+the distances of the newly introduced nodes to the
+remaining "actives" node are computed as a linear combination of the distances of the nodes prior to aggregation.
+The entire procedure is repeated until only three active
+nodes are left. Then the agglomerated nodes are expanded
+to produce the planar splits graph that represents the
+desired phylogenetic network. The aggregation procedure
+of the Nnet algorithm implicitly defines a circular split system, which can be shown to be consistent in the sense that
+for any distance matrix that is a linear combination of
+split metrics deriving from a circular split system, Nnet
+recovers the original circular split system, see [19] for the
+mathematical details. It has been observed that phylogenetic distance data are often circular or at most mildly
+non-circular, see e.g. [20-22]. In other words, this class of
+phylogenetic networks very well represents distance data
+that obtained from pairwise sequence alignments. In our
+picture, each node agglomeration corresponds to a triplet
+alignment. The alignment order is therefore given by
+Nnet's order of node fusions. Nnet however replaces a triple by a pair. This suggests to split the three-way alignment again into a pair of alignments, see Fig. 2. In Nnet, a
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+node agglomeration occurs when one of the three
+involved nodes (B) has two neighbors, while the other
+two (A and C) have only a single one. Following this rule,
+we choose to split the alignment ABC such the sequences
+contained in B are distributed between two subsets B' and
+B" so as to maximize the scores of partial alignments AB'
+and B''C. In practice, we start with partial alignments AB
+and BC obtained from ABC. Then each of the duplicated
+B sequences is removed from either AB or BC using a
+greedy rule, i.e., we remove the copy that yields the
+smaller average score contribution. Of course, other division strategies are conceivable. For example, one could
+subdivide the alignment along the longest internal edge of
+its Neighbor-Joining tree, or along non-trivial splits that
+are optimal according to other criteria. At this stage, one
+can either approximate the profile distances to all other
+intermediate alignments using Nnet's distance recursions
+(as implemented in nn3aln), or one could recompute
+these distances based on the alignments.
+The division of the ABC alignment into AB' and B''C frequently results in all-gap columns in the two parts. These
+are removed in order to recover valid MSAs. This constitutes a mechanism by which gaps introduced in early
+agglomeration steps can be removed again in later steps.
+This removal is guided by the increasing amount of information that is implicit in profiles composed of a larger
+number of sequences. Our software keeps track of gaps
+that appear in intermediate alignments but that are not
+present in the final result to demonstrate that gap removal
+is not a rare phenomenon in practice.
+2.3 Complexity
+The dynamic programming algorithm for the three-way
+
+alignment requires  (n3) space and time (where n is
+length of the input sequences). Thus the alignment of all
+N sequences takes  (Nn3) time. If the Divide-&-Conquer
+approach with the cutoff length l is used, the complexity
+of the alignment of one triplet can be reduced to  (n2 +
+l3) space. This is the space needed to store the additionalcost matrices (see [17]) plus the space required for aligning the remaining (sub)sequences of length at most l. The
+time complexity is given by  (n2 + nl2). The term n2
+results from the time that is needed to calculate the additional cost matrices plus the time to search for the optimal
+slicing positions. The term nl2 comes from the alignment
+of the triplet itself. We assume for simplicity that all
+sequences have the same length n = l·2D (D = 1, 2, ... is the
+number of dividing levels) and all slicing positions are
+located exactly at the midpoint of the (sub)sequences. The
+total time complexity of the alignment is therefore
+ (Nn2 + Nnl2). The determination of the alignment order
+
+Page 4 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+Sequence A
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+Sequence B
+
+Sequence C
+
+Three−Way
+Alignment
+
+Alignment ABC
+Splitting Process
+
+Alignment AB’
+
+Alignment B’’C
+
+Figure 2 sequences/alignments A, ABC
+taneously resulting in the alignmentB, and C are aligned simulThe three
+The three sequences/alignments A, B, and C are aligned simultaneously resulting in the alignment ABC. This alignment is
+divided into the two new alignments AB and BC. Duplicated
+sequences in B are deleted. The process continues until all
+sequences or alignments are aligned.
+
+runs in
+
+ (N3)
+
+time and  (N) space. The calculation of
+
+the necessary pairwise distances takes  (N2n2) time and
+
+ (n2) space. Typical running times for various sets of
+alignments with different numbers and lengths of
+sequences are shown in Figure 3. These are taken on an
+Intel P4 3.0 GHz equipped with 2 GB RAM running
+Fedora Core 5. The full source code of the program package is available free for academic users. The code will compile and run well on any machine with a full ANSI
+conforming C compiler and an installed Vienna RNA
+package [23,24] for the RNA specific scoring function. The
+Vienna RNA package can be obtained from [25]. The
+aln3nn source code and documentation is available from
+[1].
+2.4 Alignments of Structured RNAs
+Recent discoveries of a large number of small RNAs with
+distinctive secondary structures has prompted the development of specialized multiple alignment programs for
+this class of molecules. Most of these approaches make
+explicit use of structural alignment techniques such as tree
+editing (MARNA [26]), tree alignments (RNAforester
+[27]), or variants of the Sankoff algorithm [28] (foldalign
+[29], dynalign [30], locarna [31]). In contrast, "structure
+enhanced" approaches utilize standard sequence alignment algorithms but incorporate modified match and
+mismatch scores designed to take structural information
+into account [32]. The STRAL program [33] recently has
+demonstrated that such "structure enhanced" alignments
+perform comparable to true structural alignments in
+
+many cases. We have thus included in our software the
+possibility to use RNA secondary structure annotation as
+additional input with nucleic acid alignments.
+We use McCaskill's algorithm [34] (as implemented in the
+Vienna RNA package) to compute the matrix of equilibrium base pairing probabilities Pij for each input sequence
+and derive for each sequence position the probabilities
+p1(i) = ∑j<i Pij, p2(i) = ∑j>i Pij, and p3(i) = 1 - p1(i) - p2(i) that
+sequence position i is paired with a position j <i, a position j > i, or that it remains unpaired, resp. The px(i)-values
+are used as structure annotation. For a pair of annotated
+input sequences A and B we define structural score contributions
+for
+positions
+i
+and
+j
+by
+Sstruct (iA , jB ) =
+
+p1(iA ) ⋅ p1( jB ) + p2 (iA ) ⋅ p2 ( jB ) + p3(iA ) ⋅ p3( jB )
+
+This rewards bases that share similar structural properties.
+The total (mis)match score is the weighted sum of the
+sequence score and the structure score using the equation
+Sfinal(iA, jB) = ψ·Sseq(iA, jB) + (1 - ψ)·Sstruct(iA,jB) with a balance term ψ that measure the relative contribution of
+sequence and structure similarity. In the case of very similar sequence one should use ψ ≈ 1 since inaccuracies in
+the structure prediction are more harmful than the extra
+information in this case. Conversely, very dissimilar
+sequences have to be aligned with a score dominated by
+the structural component.
+
+3 Results
+3.1 Pairwise versus Three-Way Alignments
+In order to test whether the additional computational
+costs of explicit three-way alignments is worth while, we
+generated sets of artificial sequences using the ROSE package [35] and compared the quality of aln3nn alignments
+to standard progressive alignments of three sequences
+using t_coffee. To this end we used the same scoring
+model in aln3nn and t_coffee so that the resulting scores
+can be compared directly. We report the main pairwise
+alignment score divided by the length of the alignment as
+"pw-score". Figure 4 shows that, as expected, the alignment
+score decrease quickly with increasing in/del probabilities. At the same time, the advantage of the three-way
+alignments increases both for the alignment of three and
+ten sequences. In the case of three sequences, aln3nn
+computes the exact solution, while t_coffee uses multiple
+pairwise alignments to include more information than a
+simple pairwise progressive alignment by modifying the
+pairwise scoring functions base of the consistency of a collection of pairwise alignments. Clearly, these heuristics
+cannot fully compensate for shortcomings of the initial
+pairwise alignments. The inclusion of more pairwise
+
+Page 5 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+2
+
+10
+
+computing time [sec]
+
+1
+
+10
+
+muscle
+clustal
+stral
+aln3nn
+t_coffee
+
+0
+
+10
+
+-1
+
+10
+
+-2
+
+10
+
+-3
+
+10
+
+3x100
+
+3x200
+
+3x400
+
+5x100
+
+5x200
+
+5x400
+
+10x100 10x200 10x400
+
+number and length of sequences
+Figure time in seconds for calculation of and t_coffee
+mic plot3 muscle, clustalw, stral, aln3nn,one alignment consisting of various sequences of different length on a semi-logarithRunning for
+Running time in seconds for calculation of one alignment consisting of various sequences of different length on a semi-logarithmic plot for muscle, clustalw, stral, aln3nn, and t_coffee. The alignment programms are invoked all with their standard parameter settings.
+
+alignments in t_coffee heuristic does not seem to have a
+strong effect, at least on artifically generated sequences.
+Somewhat surprisingly, three-way alignments also provide a small but significant gain in alignment score even
+in the cases where the simulated data correspond to a correct alignment that is entirely gap free. This effect is noticable in particular in comparison with "straight" pairwise
+progressive clustalw alignments, in which no attempt is
+made to correct for problems in the initial pairwise alignments (Additional file 1). This introduction of spurious
+gaps is well-known problem with pairwise nucleic acid
+alignments.
+3.2 Protein Alignments
+The aln3nn software is designed for the alignment of both
+amino acid and nucleic acid sequences. For proteins, the
+current implementation used three types of substitution
+
+matrices: BLOSUM, PAM and GONNET. The algorithm
+chooses the best suiting matrix of the given type according
+to sequence identity. The user can also specify a certain
+substitution matrix explicitly. We used benchmark data
+sets and alignments of various alignments tools from
+BAliBASE [36] to asses the quality of the aln3nn alignments. To assure statistical robustness, we utilized the
+median BAliBASE score for each sequence set as a measurement for alignment quality, Figure 5.
+Our software does not employ any heuristic rules to alter
+scoring parameters based on local sequence context or
+properties of partial profiles. Nevertheless, aln3nn compares well with other common alignment programs, indicating that a simple affine scoring model is sufficient; only
+ProbCons [37], a combination of probabilistic modeling
+and consistency-based alignment techniques specialized
+for protein alignments performs systematically better.
+
+Page 6 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+1.6
+
+1.6
+3 Sequences
+
+1.2
+
+1.0
+
+0.8
+
+0.6
+
+three-way (aln3nn)
+pairwise (t_coffee)
+
+1.4
+
+sum of pairs score
+
+three-way (aln3nn)
+pairwise (t_coffee)
+
+1.4
+
+sum of pairs score
+
+10 Sequences
+
+1.2
+
+1.0
+
+0.8
+
+0.6
+0.00
+
+0.01
+
+0.03
+
+0.05
+
+0.07
+
+indel probability
+
+0.00
+
+0.01
+
+0.03
+
+0.05
+
+0.07
+
+indel probability
+
+Figure
+rates 4 of alignments scores of aln3nn with progressive pairwise alignments for simulated data sets for different in/del
+Comparison
+Comparison of alignments scores of aln3nn with progressive pairwise alignments for simulated data sets for different in/del
+rates. Data are averages over 100 simulated sets of 3 and 10 related nucleotide sequences, resp., with an average length of 100
+nt. The sequences in each set are derived using ROSE from a randomly generated root sequence following the order of a given
+phylogenetic tree with randomly chosen branch lengths using a constant mean substitution frequency of 0.13 across the dataset. The following scoring model was used: Match score 1.9, mismatch 0.0 (as in the IUB DNA scoring matrix), gap open 2.0,
+gap extensions 0.5).
+Elaborate scoring heuristics thus essentially seem to compensate for the algorithmic shortcomings of MSAs based
+on initial pairwise alignments.
+3.3 RNA alignments
+RNA sequences often evolve much faster than their secondary structure. This is true in particular for many of the
+non-coding RNA genes, including ribosomal RNAs,
+tRNAs, and spliceosomal RNAs. In these cases, alignment
+quality can be increased dramatically by including structural information. In Fig. 6 and 7 we compare structure
+enhanced aln3nn alignments with pure sequence alignments (clustalw, muscle [38], t_coffee [39], pair-wise
+structure enhanced alignments (STRAL, mafft [40]) and
+true structural alignments (MARNA [26]) as well as the
+manually curated reference alignments for Rfam (v.5.0)
+[41]. We use six diverse families of RNA data sets from the
+BRaliBase that have been used in an extensive benchmark
+study of RNA multiple alignment algorithms [42]: Group
+II introns, 5S rRNA, tRNA, and U5 spliceosomal RNA. In
+addition, we use the data sets compiled by Jana Hertel for
+training SVMs that recognize microRNAs [43] and snoRNAs [44]. For each family we selected approximately 100
+alignments, each consisting of five sequences encompassing a range of sequence distances.
+
+As in [42], we used the structure conservation index (SCI)
+[45] to assess the quality of the calculated alignments. The
+SCI is defined as the ratio of consensus folding energy of
+a set of aligned sequences (calculated using the RNAalifold program [24]) and average unconstrained folding
+energies of the individual sequences. The SCI is close to 0
+for structurally divergent sequences and close to 1 for correctly aligned sequences with a common fold. Values
+larger than one indicate a perfectly RNA structure which is
+additionally supported by compensatory as well as consistent mutations that preserve the common structure. The
+benchmark study [42] established that the SCI is an
+appropriate measure for RNA alignment quality when the
+sequences are known to have a common fold, since
+decreased values of the SCI can be attributed to alignment
+errors. For the four of the six test sets with reference alignments we also computed the BAliBase SP score (SPS),
+which directly measure the similarity of two alignments.
+For all computations we used a fixed tradeoff between
+sequence and structure scores of ψ = 0.5.
+We find that aln3nn produces high quality alignments of
+structured RNAs that are at least competitive with the
+other methods, including computationally very expensive
+structure-based methods. In particular, no other program
+systematically outperforms aln3nn in terms of alignment
+
+Page 7 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+1.00
+
+BAli Score
+
+0.95
+PRRP
+CLUSTAL
+SAGA
+DIALIGN
+SB_PIMA
+ML_PIMA
+MULTALIGN
+PILEUP8
+MULTAL
+KALIGN
+MAFFT
+MUSCLE
+PROBCONS
+ALN3NN
+
+0.90
+
+0.85
+
+>35% MEDIUM
+20-40% SHORT
+20-40% LONG
+20-40% MEDIUM
+>35% SHORT
+>35% LONG
+Figure 5
+Comparison of different alignment programs on several BAliBASE benchmark data sets
+Comparison of different alignment programs on several BAliBASE benchmark data sets. Shown is an example of the Reference
+1 set for mean sequence identities of 20 – 40% as well as > 35% encompassing short, medium and long sequences. Other datasets show similar results.
+
+information is completely ignored (ψ = 1). On the other
+hand, ignoring the sequence information (ψ = 0) yields
+even worse results. The reason is that RNA secondary
+structure prediction has limited accuracy so that alignments based on predicted structures for individual
+sequences are based on very noisy data [24,32]. The
+impact of the ψ parameter varies between different RNA
+families. While alignments of group II introns and U5
+
+quality according to either the SCI or the SPS. Interestingly, aln3nn achieves significantly higher SCI values than
+even the reference alignment on the 5S rRNA data set. Not
+surprisingly, the performance of structure enhanced alignments depends on the proper weighting of sequence and
+structure information. Figure 8 shows the influence of the
+parameter ψ on the SCI values for the given RNA
+sequences. As expected the SCI decreases if structural
+
+Table 1: Mean frequency f and standard deviation σf of correctly removed gap columns from the intermediate alignments after the
+division process.
+
+RNA family
+Group II Intron
+miRNA
+5S rRNA
+snoRNA
+tRNA
+U5
+
+f
+
+σf
+
+0.138
+0.126
+0.265
+0.131
+0.197
+0.083
+
+0.268
+0.210
+0.279
+0.230
+0.305
+0.114
+
+Page 8 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+1.2
+1.0
+
+SCI
+
+0.8
+0.6
+
+reference
+clustalw
+MARNA
+STRAL
+mafft
+t_coffee
+muscle
+aln3nn
+
+0.4
+0.2
+0.0
+
+5S rRNA
+
+tRNA
+
+U5
+
+gII-Intron
+
+miRNA
+
+snoRNA
+
+Figure 6
+Comparison of alignment accuracies of various multiple sequence alignment tools on BRaliBase test sets
+Comparison of alignment accuracies of various multiple sequence alignment tools on BRaliBase test sets. The median structure
+conservation index, SCI, is shown for Group II introns, 5S rRNA, tRNA, and U5 spliceosomal RNA. The relative weight of
+sequence and structure scores is set to ψ = 0.5 for all data sets.
+
+spliceosomal RNAs are fairly robust against variations in
+ψ, we observe large variations for miRNA and 5S rRNA
+alignments.
+3.4 Gap removals
+The possibility to correct gaps that are introduced at early
+stages was a major motivation for developing aln3nn. We
+therefore investigated to what extent the algorithm actually utilizes this feature. Table 1 shows the frequency f of
+gaps that are removed at intermediate division steps and
+that are not re-introduced at later stages. We find that in
+some data sets one fifth of the gaps in the early stages of
+the progressive alignment are later removed again. This
+observation emphasizes the fact that the "once a gap,
+always a gap" property of pair-wise progressive alignment
+algorithms is a major shortcoming.
+
+4 Discussion
+We have presented here a novel progressive alignment
+tool, aln3nn, that uses exact dynamic programming to
+
+construct three-way alignments of sequences and profiles
+and that uses a three-to-two aggregation procedure in the
+spirit of Neighbor-Net. A direct comparison of exact threeway alignments with progressive alignments of the same
+three sequences shows that the progressive approach leads
+to significantly suboptimal scores. The discrepancy
+increases with sequence diversity and in/del probability.
+While incurring significant additional computational
+costs compared to pair-wise, guide-tree based,
+approaches, aln3nn achieves competitive alignment accuracies on both protein and nucleic acid data on BAliBASE
+and BRaliBase benchmark data set. The software furthermore provides an option to compute structure enhanced
+RNA alignments.
+Programs such as clustalw employ a variety of heuristic
+rules that introduce local modifications of the scoring
+scheme to (partially) compensate for problematic sections of intermediate alignments. In contrast, aln3nn
+achieves this encouraging performance without any heu-
+
+Page 9 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+1.0
+
+SPS
+
+0.8
+
+0.6
+reference
+clustalw
+MARNA
+STRAL
+mafft
+t_coffee
+muscle
+aln3nn
+
+0.4
+
+0.2
+
+0.0
+
+5S rRNA
+
+tRNA
+
+U5
+
+gII-Intron
+
+Figure 7
+Comparison of alignment accuracies of various multiple sequence alignment tools on BRaliBase test sets
+Comparison of alignment accuracies of various multiple sequence alignment tools on BRaliBase test sets. Here the median
+BAliBase SP score, SPS, is shown for Group II introns, 5S rRNA, tRNA, and U5 spliceosomal RNA. For the miRNA and
+snoRNA data set no reference alignments are available in BRaliBase.
+
+ristic modifications of the scoring schemes. This indicates
+that three-way alignments and the more sophisticated
+aggregation steps provide a significant advantage of pairwise methods. In particular, the comparison with the performance of t_coffee shows that the shortcoming of initial
+pairwise alignments cannot be fully overcome even by utilizing consensus information of a collection of pairwise
+alignments. In particular, we observe that the three-to-two
+aggregation step, with its division procedure, removed up
+to one fifth of the previously introduced gap characters,
+emphasizing that the inability to correct misplaced gaps is
+major shortcoming of traditional progressive alignment
+algorithms.
+
+ular in the intermediate profile alignment steps. The division-step for the three-way alignments could also be
+modified in several ways. A possible approach would infer
+a phylogenetic tree that is is then subdivided at the longest
+or the most central edge. In its present implementation,
+aln3nn is relatively slow compared to many recent multiple alignment methods, although it typically outperforms
+some of the standard tools. This lack of performance
+could be alleviated in the future e.g. by improving the
+branch and bound approach and by anchoring the alignments at very well conserved regions. Overall, aln3nn
+shows that progressive alignments are a competitive
+approach that is worth-while to explore.
+
+5 Conclusion
+
+Availability and Requirements
+
+In its present implementation, aln3nn demonstrates that
+progressive alignment schemes can produce competitive
+high quality alignments even without sophisticated scoring functions. This leaves ample room for future improvements. In particular, one might want to include gap
+penalties that depend on local sequence context in partic-
+
+Project name:
+
+aln3nn
+
+Project homepage: http://www.bioinf.uni-leipzig.de/Soft
+ware/aln3nn
+
+Page 10 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+0.8
+
+SCI
+
+0.6
+
+0.4
+5S rRNA
+tRNA
+U5
+gII-Intron
+miRNA
+snoRNA
+
+0.2
+
+0.0
+0.0
+
+0.2
+
+0.4
+
+ψ
+
+0.6
+
+0.8
+
+1.0
+
+Figureof the balancing parameter ψ on SCI mean values for different sets of RNA sequences
+Impact 8
+Impact of the balancing parameter ψ on SCI mean values for different sets of RNA sequences. ψ = 0 fully weights the structure
+whereas ψ = 1 weights the sequence.
+
+Operating system(s): platform independent in principle,
+tested for LINUX and other UNIX dialects. An ANSI C
+compiler is required.
+Programming language: C License: GNU GPL.
+Restrictions to use by non-academics: none.
+
+Additional material
+Additional file 1
+Supplementary figure
+Click here for file
+[http://www.biomedcentral.com/content/supplementary/14712105-8-254-S1.pdf]
+
+6 Authors' contributions
+MK and PFS closely collaborated in design and algorithmic aspects of this study and wrote the manuscript
+together. MK implemented the software and carried out
+all benchmark simulations.
+
+7 Acknowledgements
+Fruitful discussions with Dirk Drasdo and Ivo L. Hofacker, as well as valuable comments by anonymous referees are gratefully acknowledged. This
+work was supported in part by the FP-6 EMBIO project, the SPP 1174
+"Deep Metazoan Phylogeny" and the DFG Bioinformatics Initiative (BIZ-6/
+1-2).
+
+Page 11 of 12
+(page number not for citation purposes)
+
+BMC Bioinformatics 2007, 8:254
+
+References
+1.
+2.
+3.
+
+4.
+5.
+6.
+7.
+8.
+
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+
+17.
+18.
+19.
+20.
+21.
+22.
+23.
+24.
+25.
+26.
+27.
+
+28.
+
+The aln3nn software
+[http://www.bioinf.uni-leipzig.de/Software/
+aln3nn].
+Wang L, Jiang T: On the Complexity of Multiple Sequence
+Alignment. J Comp Biol 1994, 1:337-348.
+Thompson J, Higgins D, Gibson T: CLUSTAL W: improving the
+sensitivity of progressive multiple sequence alignment
+through sequence weighting, position-specific gap penalties
+and weight matrix choice.
+Nucleic Acids Research 1994,
+22(22):4673-4680.
+Hogeweg P, Hesper B: The alignment of sets of sequences and
+the construction of phylogenetic trees. An integrated
+method. J Mol Evol 1984, 20:175-186.
+Feng D, Doolittle R: Progressive sequence alignment as a prerequisite to correct phylogenetic trees. J Mol Evol 1987,
+25:351-360.
+Saitou N, Nei M: The neighbor-joining method: a new method,
+for reconstructing phylogenetic trees. Mol Biol Evol 1987,
+4:406-425.
+Sokal RR, Michner CD: A statistical method for evaluating systematic relationships. Univ Kans Sci Bull 1958, 38:1409-1438.
+Bryant D, Moulton V: NeighborNet: An agglomerative method
+for the construction of planar phylogenetic networks. In
+WABI '02: Proceedings of the Second International Workshop on Algorithms in Bioinformatics London, UK: Springer-Verlag; 2002:375-391.
+Needleman SB, Wunsch CD: A general method applicable to
+the search for similarities in the aminoacid sequences of two
+proteins. J Mol Biol 1970, 48:443-452.
+Dewey TG: A sequence alignment algorithm with an arbitrary
+gap penalty function. J Comp Biol 2001, 8:177-190.
+Gotoh O: An improved algorithm for matching biological
+sequences. J Mol Biol 1982, 162:705-708.
+Gotoh O: Alignment of three biological sequences with an
+efficient traceback procedure. J theor Biol 1986, 121:327-337.
+Konagurthu A, Whisstock J, Stuckey P: Progressive multiple alignment using sequence triplet optimization and three-residue
+exchange costs. J Bioinf and Comp Biol 2004, 2(4):719-745.
+Myers E, Miller W: Optimal alignemnts in linear space. Bioinformatics 1988, 4:11-17.
+Lipman D, Altschul S, Kececioglu J: A tool for multiple sequence
+alignment. Proceedings of the National Academy of Sciences of the
+United States of America 1989, 86(12):4412-4415.
+Gupta S, Kececioglu J, Schaffer A: Improving the practical space
+and time efficiency of the shortest-paths approach to sumof-pairs multiple sequence alignment. Journal of Computational
+Biology 1995, 2(3):459-462.
+Stoye J: Multiple sequence alignment with the divide-and-conquer method. Gene Combis 1997, 211:45-56.
+Bryant D, Moulton V: Neighbor-Net: An Agglomerative
+Method for the Construction of Phylogenetic Networks. Mol
+Biol Evol 2004, 21:255-265.
+Bryant D, Moulton V: Consistency of Neighbor-Net. Alg Mol Biol
+2007, 2(1):8. Under review
+Bandelt HJ, Dress AWM: Split Decomposition: A New and Useful Approach to Phylogenetic Analysis of Distance Data. Mol
+Phyl Evol 1992, 1:242-252.
+Huson DH: SplitsTree: analyzing and visualizing evolutionary
+data. Bioinformatics 1998, 14:68-73.
+Wetzel R: Zur Visualisierung abstrakter Ähnlichkeitsbeziehungen. In PhD thesis Bielefeld University, Germany; 1995.
+Hofacker I, Fontana W, Stadler P, Bonhoeffer L, Tacker M, Schuster
+P: Fast folding and comparison of RNA secondary structures.
+Monatshefte für Chemie 1994, 125:167-188.
+Hofacker I, Fekete M, Stadler P: Secondary structure prediction
+for aligned RNA sequences. J Mol Evol 2002, 319(5):1059-1066.
+The Vienna RNA package [http://www.tbi.univie.ac.at/RNA].
+Siebert S, Backofen R: MARNA: multiple alignment and consensus structure prediction of RNAs based on sequence structure comparisons. Bioinformatics 2005, 21:3352-3359.
+Höchsmann M, Töller T, Giegerich R, Kurtz S: Local Similarity in
+RNA Secondary Structures. Proc of the Computational Systems Bioinformatics Conference, Stanford, CA, August 2003 (CSB 2003) 2003,
+2:159-168.
+Sankoff D: Simultaneous solution of the RNA folding, alignment, and proto-sequence problems. SIAM J Appl Math 1985,
+45:810-825.
+
+http://www.biomedcentral.com/1471-2105/8/254
+
+29.
+30.
+31.
+32.
+33.
+34.
+35.
+36.
+37.
+38.
+39.
+40.
+41.
+42.
+43.
+44.
+
+45.
+
+Hull Havgaard JH, Lyngsø R, Stormo GD, Gorodkin J: Pairwise local
+structural alignment of RNA sequences with sequence similarity less than 40%. Bioinformatics 2005, 21:1815-1824.
+Mathews DH, Turner DH: Dynalign: An Algorithm for Finding
+Secondary Structures Common to Two RNA Sequences. J
+Mol Biol 2002, 317:191-203.
+Will S, Missal K, Hofacker IL, Stadler PF, Backofen R: Inferring NonCoding RNA Families and Classes by Means of GenomeScale Structure-Based Clustering. PLoS Comp Biol 2006 in press.
+Bonhoeffer LS, McCaskill JS, Stadler PF, Schuster P: RNA MultiStructure Landscapes. A Study Based on Temperature
+Dependent Partition Functions. Eur Biophys J 1993, 22:13-24.
+Dalli D, Wilm A, Mainz I, Steger G: STRAL: progressive alignment of non-coding RNA using base pairing probability vectors in quadratic time. Bioinformatcs 2006, 22(13):1593-1599.
+McCaskill J: The equilibrium partition function and base pair
+binding probabilities for RNA secondary structure. Biopolymers 1990, 29:1105-1119.
+Stoye J, Evers D, Meyer F: Rose: generating sequence families.
+Bioinformatics 1998, 14:157-163.
+Thompson J, Plewniak F, Poch O: BAliBASE: a benchmark alignment databse for the evaluation of multiple alignment programs. Bioinformatcs 1999, 15:78-88.
+Do CB, Mahabhashyam MSP, Brudno M, Batzoglou S: PROBCONS:
+Probabilistic Consistency-based Multiple Sequence Alignment. Genome Research 2005, 15:330-340.
+Edgar RC: MUSCLE: a multiple sequence alignment method
+with reduced time and space complexity. BMC Bioinformatics
+2004, 5:.
+Notredame C, Higgins D, Heringa J: T-Coffee: A novel method
+for multiple sequence alignments. Journal of Molecular Biology
+2000, 302:.
+Katoh K, Misawa K, Kuma K, Miyata T: MAFFT: a novel method
+for rapid multiple sequence alignment based on fast Fourier
+transform. Nucleic Acids Res 2002, 30:3059-3066.
+Griffiths-Jones S, Moxon S, Marshall M, Khanna A, Eddy S, Bateman A:
+Rfam: annotating noc-coding RNAs in complete genomes.
+Nucleic Acid Research 2005, 33:.
+Gardner P, Wilm A, Washietl S: A benchmark of multiple
+sequence alignment programs upon structural RNAs. Nucleic
+Acids Research 2005, 33:2433.
+Hertel J, Lindemeyer M, Missal K, Fried C, Tanzer A, Flamm C,
+Hofacker I, Stadler P: The Expansion of the Metazoan MicroRNA Repertoire. BMC Genomics 2006, 7(25):.
+Hertel J, Hofacker IL, Stadler PF: snoReport: Computational
+identification of snoRNAs with unknown targets. 2007 [http:/
+/www.bioinf.uni-leipzig.de/Publications/07wplist.html].
+Submitted;
+preprint BIOINF 07-003
+Washietl S, Hofacker I, Stadler P: Fast and reliable prediction of
+noncoding RNAs. PNAS 2005, 102(7):2454-2459.
+
+Publish with Bio Med Central and every
+scientist can read your work free of charge
+"BioMed Central will be the most significant development for
+disseminating the results of biomedical researc h in our lifetime."
+Sir Paul Nurse, Cancer Research UK
+
+Your research papers will be:
+available free of charge to the entire biomedical community
+peer reviewed and published immediately upon acceptance
+cited in PubMed and archived on PubMed Central
+yours — you keep the copyright
+
+BioMedcentral
+
+Submit your manuscript here:
+http://www.biomedcentral.com/info/publishing_adv.asp
+
+Page 12 of 12
+(page number not for citation purposes)
+
+</pre>
+</body>
+</html>

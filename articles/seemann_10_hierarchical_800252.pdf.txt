@@ -1,0 +1,1749 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Hierarchical folding of multiple sequence alignments for the prediction of structures and RNA-RNA interactions</title>
+<meta name="Subject" content="Algorithms for Molecular Biology 2010, 5:22. doi: 10.1186/1748-7188-5-22"/>
+<meta name="Author" content="Stefan E Seemann, Andreas S Richter, Jan Gorodkin, Rolf Backofen"/>
+<meta name="Creator" content="FrameMaker 8.0"/>
+<meta name="Producer" content="Acrobat Distiller 7.0 (Windows)"/>
+<meta name="CreationDate" content=""/>
+</head>
+<body>
+<pre>
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+Open Access
+
+RESEARCH
+
+Hierarchical folding of multiple sequence
+alignments for the prediction of structures and
+RNA-RNA interactions
+Research
+
+Stefan E Seemann†1, Andreas S Richter†2, Jan Gorodkin1 and Rolf Backofen*2
+
+Abstract
+Background: Many regulatory non-coding RNAs (ncRNAs) function through complementary binding with mRNAs or
+other ncRNAs, e.g., microRNAs, snoRNAs and bacterial sRNAs. Predicting these RNA interactions is essential for
+functional studies of putative ncRNAs or for the design of artificial RNAs. Many ncRNAs show clear signs of undergoing
+compensating base changes over evolutionary time. Here, we postulate that a non-negligible part of the existing RNARNA interactions contain preserved but covarying patterns of interactions.
+Methods: We present a novel method that takes compensating base changes across the binding sites into account.
+The algorithm works in two steps on two pre-generated multiple alignments. In the first step, individual base pairs with
+high reliability are found using the PETfold algorithm, which includes evolutionary and thermodynamic properties.
+In step two (where high reliability base pairs from step one are constrained as unpaired), the principle of cofolding is
+combined with hierarchical folding. The final prediction of intra- and inter-molecular base pairs consists of the
+reliabilities computed from the constrained expected accuracy scoring, which is an extended version of that used for
+individual multiple alignments.
+Results: We derived a rather extensive algorithm. One of the advantages of our approach (in contrast to other RNARNA interaction prediction methods) is the application of covariance detection and prediction of pseudoknots
+between intra- and inter-molecular base pairs. As a proof of concept, we show an example and discuss the strengths
+and weaknesses of the approach.
+Background
+Predicting RNA-RNA interactions is a rapidly growing
+area within RNA bioinformatics and is essential for the
+process of assigning function to known as well as de novo
+predicted non-coding RNAs (ncRNAs) such as those
+identified in in silico screens for RNA structures [1-7].
+This candidate information along with the data generated
+from deep sequencing analyses emphasise the need to
+predict RNA-RNA interactions. In part, this is because
+there currently is no high-throughput method available
+for the reliable analysis of RNA-RNA interactions; however, computational prediction of RNA-RNA interactions
+is also essential for the identification of putative targets of
+* Correspondence: backofen@informatik.uni-freiburg.de
+2
+
+Bioinformatics Group, University of Freiburg, Georges-Köhler-Allee 106,
+Freiburg, 79110, Germany
+† Contributed equally
+Full list of author information is available at the end of the article
+
+known and de novo predicted ncRNAs. With the main
+exception of microRNA target prediction, the current
+approaches essentially evaluate the stabilities of the common complexes between ncRNAs and target RNAs by
+computing the overall free energy using two major strategies (see, e.g., [8] for a recent review).
+The first strategy, represented through the implementations of RNAup[9] and IntaRNA[10], uses pre-calculated values for all possible regions of interaction to
+determine the energy required to make that site accessible (called the ED-value for the energy difference). The
+ED-value is then used to calculate a combined energy of
+the energy given by the duplex formed by the two interaction regions and the ED-values of both interaction
+regions. RNAup has a complexity of O(n3 + nw5), whereas
+IntaRNA has a complexity of O(n2), which makes it fast
+enough to be used in genome-wide screens. Both methods are able to predict complex interactions, like kissing
+
+© 2010 Seemann et al; licensee BioMed Central Ltd. This is an Open Access article distributed under the terms of the Creative Commons
+Attribution License (http://creativecommons.org/licenses/by/2.0), which permits unrestricted use, distribution, and reproduction in
+any medium, provided the original work is properly cited.
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+hairpins, as long as the interaction is restricted to one
+region. However, there are well-known examples where
+several interaction sites were found, especially for longer
+ncRNAs. A prominent example is the interaction
+between OxyS and fhlA shown in [11].
+The second strategy for RNA-RNA interaction predictions is usually handled with a class of approaches that
+simultaneously predict a common structure for both
+RNAs including their interaction. Some of the first
+approaches, e.g., pairfold[12], RNAcofold[13] and
+the method presented by Dirks et al. as part of the
+NUpack package [14], concatenate the two sequences
+using a special linker character. Then, a modified version
+of the usual RNA folding methods (like Mfold[15] and
+RNAfold[16]) is applied to cope with the linker symbol
+to predict the correct energies. Otherwise, a loop containing the linker symbol would be treated like a hairpin
+or internal loop, leading to incorrect energy values.
+The main disadvantage of the concatenation approach
+is that the set of candidate joint structures becomes
+restricted. For this reason, double kissing hairpin interactions (like in OxyS-fhlA) cannot be considered. However,
+alternative (but also most resource demanding) methods
+have been introduced and extend the class of allowed
+joint structures. The IRIS tool [17] allowed several kissing hairpins using a maximum number of base pair
+energy model. Then, Alkan et al. [18] presented a more
+realistic energy model and showed the NP-completeness
+of an unrestricted model. Both approaches predict structures with minimum free energy.
+A more stable approach is to consider the partition
+function because it allows the calculation of interaction
+probabilities and melting temperatures. This problem
+was solved independently by Chitsaz et al. [19] and
+Huang et al. [20]. In [21], hybrid probabilities were calculated. These approaches have high time complexities of
+O(n6), which makes them infeasible for genome-wide
+applications. Methods to reduce the complexity range
+from approximation approaches [22,23] to sparsification
+of the dynamical programming matrix [24].
+Here, we present an algorithm for the prediction of
+RNA-RNA interactions in existing multiple alignments of
+RNA sequences. Its rationale is based on the assumption
+that a non-negligible amount of the RNA-RNA interactions contain compensatory base changes across the
+binding sites. The algorithm presented herein is an extension of the PETfold algorithm [25] and makes further
+use of the principles from RNAcofold [13] and computational strategies for hierarchical folding, e.g. [26,27].
+The latter approach was chosen due to the high computational costs of pseudoknot searches.
+
+Page 2 of 13
+
+Algorithm
+The main idea of the introduced method is to use a hierarchical approach to predict an interaction by predicting
+reliable base pairs within a ncRNA and a mRNA (or
+another ncRNA), which is followed by prediction of reliable base pairs in the combined sequence. Via this
+approach, we are able to predict combined pseudoknotted structures, like kissing hairpins, that would be missed
+otherwise. In both steps, we apply a combined scoring
+method that predicts consensus base pairs from an alignment using evolutionary conservation and thermodynamic stability information.
+The scoring for the first step is according to the standard PETfold approach, where we use thresholds for
+reliable base pairs that have been identified according to
+training on more than 30 verified interactions in bacteria,
+which is described later. For the second step, we define a
+constrained version of the PETfold scoring scheme.
+Throughout this paper, we consider the concatenation
+of the two alignments and subsequently (in the base pair
+prediction process) the concatenation of the corresponding structures. σ will denote a set of base pairs, where the
+substructures in each part (e.g., ncRNA, mRNA and the
+base pairs that participate in the interaction) in respective
+alignments are concatenated or nested (in the dot bracket
+notation, these substructures have alignment lengths of
+the ncRNA and mRNA respectively). We use (i, j) to
+denote a Watson-Crick or G-U wobble base pair between
+columns i and j. This base pair could be an intra-molecular pair in each of the RNA molecules (ncRNA or mRNA)
+or an inter-molecular pair that is involved in an interaction between molecules.
+Depending on the context, σ will either be interpreted
+as a specific structure that implicitly defines the singlestranded positions or as a partial structure that describes
+an ensemble of structures. In the first case, we define the
+set of single-stranded positions of a sequence s as
+⎧ 1 ≤ i ≤| s | ∧
+⎫
+⎪
+⎪
+ss(s ) = ⎨ i
+⎬.
+∀j = 1,...,| s |: ((i, j) ∉ s ∧ ( j, i) ∉ s ) ⎭
+⎪
+⎪
+⎩
+
+In the second case, we use E(σ) = {σ'|σ' ? σ} to denote the
+ensemble of all specific structures σ' extending σ. S (s)
+denotes the set of nested secondary structures that are
+defined for the sequence s. We use the same notation for
+the consensus structures of a given multiple alignment
+A with n sequences s1 ... sn. In this case, a position 1 ≤ i ≤
+| A | refers to a column in the alignment. Furthermore,
+we use s A to indicate a sequence s1 ... sn from the alignment.
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+Page 3 of 13
+
+The algorithm, like PETfold is a maximum expected
+scoring approach that combines the evolutionary probabilities Prev[σ| A ] of a consensus structure, σ, given an
+alignment, with the thermodynamic probabilities of the
+associated structures in each sequence. Prev[σ| A ] is generated using the stochastic context-free grammar (SCFG)
+from the Pfold model [28]. The Pfold model allows the
+computation of the probability Pr[σ| A , T, M] of a consensus structure σ given an alignment A , a phylogenetic
+tree T for that alignment, and a general background
+model M for secondary structures. Because the tree T is
+calculated from the alignment A , and M is constant, we
+use Prev[σ| A ] as short for Pr[σ| A , T, M].
+The (secondary structure) model itself is based on a
+SCFG that provides a distribution of secondary structures for a given alignment. The combined probability of
+an alignment A and a consensus structure σ is
+Pr[A , s | T , M] = Pr[A | T , s ]Pr[s | T , M],
+
+∏ Pr
+
+(i , j)∈s
+
+bp[A
+
+i
+
+A j | T] ×
+
+step approach. Throughout the paper, Rss (i) is used to
+denote the reliability of a single-stranded region at alignment position i and Rbp (i, j) the reliability of a consensus
+base pair (i, j), where < = 1, 2 refers to Step 1 or Step 2 of
+the combined approach.
+Refresher: PETfold scoring
+
+where Pr[σ|T, M] is the prior distribution of secondary
+structures and Pr[ A |T, σ ] is the probability of the alignment, given a known consensus structure. This is then
+transformed into Pr[ A , σ|T, M] by applying the Bayesian
+rule, and further into the posterior distribution Pr[σ| A ,
+T, M] of consensus structures σ by dividing by Pr[ A |T,
+M], which is the sum of all parse trees for an alignment
+A given T and M. Note that the comma sign here is just
+a shortcut for ∧, i.e. Pr[A, B] = Pr[A ∧ B]. We will still use
+∧ where it is appropriate.
+The probability distributions themselves are formed as
+follows. For Pr[ A |T, σ ], there is an independent evaluation of all base pairs and single-stranded positions:
+Pr[A | T , s ] =
+
+The evolutionary model and the prior model for RNA
+structures used in the Pfold model are combined into a
+single SCFG that provides a distribution over Pr[A, σ|T,
+M] (see additional file 1 for details).
+To model the thermodynamic probabilities, we define σ
+k, A ) as the structure for the k-th sequence sk of an
+(s
+alignment A associated with the consensus structure σ
+of A . Prth[σ (sk, A )|sk] is the corresponding thermodynamic probability as defined by McCaskill's partition
+function approach [29].
+Using the maximum expected scoring approach, these
+probabilities are transformed into reliabilities in a two-
+
+∏ Pr [A | T],
+
+Here, we briefly recall the scoring of PETfold, which is a
+maximum expected accuracy scoring method. For simplicity, we will exclude a description of the scoring of single-stranded positions. However, they are scored the
+same way as in the original PETfold approach; for more
+details, see [25].
+The PETfold score is the sum of the evolutionary
+accuracy values plus the average sum of the thermodynamic accuracy values. For the evolutionary part, we
+compute the expected accuracy (or overlap) EAev(σ) of a
+specific consensus structure σ with all possible consensus
+structures, which are weighted according to their probabilities:
+EA ev (s ) =
+
+∑| s ∩ s ′ | × Pr
+
+ev
+
+[s ′ | A].
+
+(1)
+
+s′
+
+i
+
+ss
+
+i∈ss(s )
+
+P
+P
+where A i is the ith column of A , and s ∉ s 1 ∪ s 2
+p
+p
+for the constrained folding, where s 1 ( s 2 resp.) is the
+constrained structure on the first (second resp.) of the
+two concatenated alignments. For the prior model, the
+probability Pr[σ|T, M] provides an overall distribution of
+the secondary structures, which is estimated from rRNA
+and tRNA sequences. M is given by the following simple
+SCFG:
+
+S → LS | L F → dFd | LS L → s | dFd .
+
+Recall that Prev[σ'| A ] denotes the evolutionary probability of a structure σ' according to the Pfold SCFG as
+described above. |σ ∩ σ'| is the number of base pairs that
+are common between σ and σ' and thus denotes the overlap between these two structures.
+For the thermodynamic part, the expected accuracy
+EAth(σ) of σ with all structures for all sequences according
+to the thermodynamic ensembles is defined by
+EA th (s ) =
+
+∑ ∑ | s ∩ s ′ | × Pr
+s
+
+th
+
+[s ′( s, A) | s].
+
+s ′∈S ( s)
+
+(2)
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+Page 4 of 13
+
+The combined expected accuracy consists of both
+parts, generally weighted with 1 for the conservation portion and β for the thermodynamic accuracy:
+
+b
+EA(s ) = EA (s ) + × EA th (s ),
+n
+ev
+
+(3)
+
+where n is the previously described number of
+sequences in the alignment. As shown previously [25],
+this final score can be calculated using the base pair reliabilities, where the combined reliability Pbp(i, j) for a base
+pair (i, j) is given by
+Rbp (i, j) =
+
+∑ 1 × Pr
+
+ev
+
+[s ′ | A]
+
+s ′ with
+(i , j)∈s ′
+
++
+
+b
+×
+n
+
+∑ ∑ 1 × Pr
+s
+
+th
+
+[s ′( s, A) | s] (4)
+
+s ′ with
+(i , j)∈s ′
+
+ev
+= Rbp (i, j, A) +
+
+b
+×
+n
+
+∑ Pr
+
+th
+bp (i,
+
+j, s),
+
+s
+
+th
+where Prbp (i, j, s) is the base pair probability of the pair
+
+(k, l) associated with columns (i, j) in sequence s. These
+reliabilities are calculated with an inside/outside algorithm and are central to the hierarchical approach presented in the following sections. The expected accuracy
+can then be calculated from the base pair reliabilities by
+EA(s ) =
+
+∑R
+
+bp (i,
+
+j).
+
+(5)
+
+(i , j)∈s
+
+The consensus structure with the maximal reliability is
+then calculated using a Nussinov-style algorithm [30],
+where the base pairs are evaluated with reliabilities.
+Step 1: Intra-molecular partial structures
+
+We use two alignments A1 and A2 of sequences
+1
+n
+m
+k
+k
+s1 … s1 and s 1 … s 2 , where s1 is a ncRNA and s 2 is its
+2
+target sequence. For convenience, we adopt the convenk
+tion of RNAcofold and assume that the positions in s1
+k
+k
+are numbered 1 ≤ i ≤ | s1 | and the positions in s 2 are
+k
+k
+k
+numbered | s1 | + 1 ≤ i ≤ | s1 | + | s 2 |.
+
+Selection of the initial structure
+
+p
+p
+tures s 1 and s 2 are determined independently for A1
+
+and A2 . In the following steps, let A be either A1 or
+A2 and σp be the partial structure calculated for A . This
+is done by selecting only base pairs (i, j) with
+1
+Rbp (i, j) ≥ d ,
+
+where δ is a cut-off that must be ≥ 0.5 to avoid crossing
+structures. This is similar to the method by which consensus structures are predicted for single sequences [31]
+and has been shown to be more reliable for the prediction
+of consensus structures from alignments.
+Here, however, we also have to estimate the contribution of each of the partial structures to the complete solution. Because the set of base pairs from a predicted
+consensus structure do not necessarily form a reasonable
+structure, we account for this by introducing a second
+threshold γ. High values for this threshold guarantee that
+each sequence used to create the consensus structure has
+a high likelihood and that the approximation, which we
+apply in the second step (as will be described by Equation
+(14)), is accurate.
+To find the optimal value of the reliability threshold δ,
+its value is increased until the resulting ensemble of
+structures ε(σp) that are compatible with the partial structure σp is probable enough in the evolutionary model, in
+the thermodynamic model, or in both models, which is
+when
+Pr ev [E ( s p ) | A] ≥ γ or
+
+1
+p
+th
+∑ Pr [E (s ( s, A)) | s] ≥ γ .
+n s∈A
+
+Here, Prev[ε(σp)| A ] (= Prev[ε(σp)| A , T, M]) is the
+probability of the partial structure σp given the alignment
+A in the evolutionary model M and tree T. This can be
+calculated from Pfold with the SCFG that combines the
+prior structural model with evolutionary information
+from the alignment (see additional file 1) as follows:
+Pr ev [E (s p ) | A , T , M]
+Pr[E (s p )|A ,T , M]×Pr[A|T , M]
+=
+1×Pr[A|T , M]
+=
+
+(6)
+
+Pr[E (s p ),A|T , M]
+Pr[A|T , M]
+
+In the first step of the pipeline, we obtain the base pair
+1
+reliabilities from Equation (4), which we denote Rbp (i, j).
+
+Using these reliabilities, the partial (constrained) struc-
+
+The term Pr[ A |T, M] has already been calculated (personal communication with Bjarne Knudsen) in Pfold as
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+the sum of all possible parse trees for an alignment A ,
+given T, M:
+
+Pr[A | T , M] =
+
+∑ Pr[A, s | T , M].
+s
+
+Here, we add the calculation of
+Pr[E (s p ), A | T , M] =
+
+∑
+
+Pr[A , s | T , M]
+p
+
+s ∈E (s )
+
+to Pfold by summing over all possible parse trees that
+are compatible with σ.
+Prth[ε(σp(s, A ))|s] is the probability of the partial structure σp given a sequence s in the thermodynamic model.
+This probability can be calculated using constrained partition folding as follows:
+−E s
+E (s p( s,A))
+e
+RT
+Pr th[E ( s p ( s, A)) | s] =
+−E s
+all
+(7)
+e RT
+E s −E s
+all E (s p( s,A))
+RT
+=e
+,
+s
+where E all is the free energy of the whole ensemble (as
+determined by RNAfold with parameters -p -d2) and
+s
+E E (s P ( s ,A )) is the free energy of the ensemble of struc-
+
+tures ?(σp(s, A )) with the base pairs in σp(s, A ) as constraints, which can be calculated by RNAfold with
+parameters -C -p -d2.
+Extension of constrained stems
+
+Reliable intra-molecular base pairs are constrained as
+single-stranded in Step 2 of the algorithm because we are
+interested in pseudoknots of the concatenated sequence
+and the interactions in these induced loop regions. The
+drawback of this ansatz is that intra-molecular stems get
+instable because of intermediate unbased constraints.
+Thus, we may get incomplete stems. To deal with this
+problem, we extend the constrained stems. Inner and
+outer base pairs are added as long as the average reliability of the inner or outer extended stem, respectively, is
+larger than the threshold δ, and the probability of the partial structure is greater than or equal to γ either in the
+evolutionary or the thermodynamic model. That is, the
+average reliability of the total, extended stem has to be
+larger than a threshold.
+Step 1 is summarised as pseudocode in Figure 1.
+
+Page 5 of 13
+
+for Alignment A1 , A2 do
+calculate tree T ,
+phylogenetic reliabilities R1,ev ,
+thermodynamic probabilities Pr1,th
+=⇒ R1 (i, j), R1 (i) ← PETfold model
+ss
+bp
+repeat
+for all (i, j) do
+if R1 (i, j) ≥ δ then
+bp
+add base pair (i, j) to σ p
+end if
+end for
+calculate partial structure probabilities
+Prev [E(σ p )|A] and Prth [E(σ p )|s]
+increase δ
+until
+1
+Prth [E(σ p )|s] ≥ γ
+Prev [E(σ p )|A] ≥ γ ||
+n s
+for all stem S ⊂ σ p do
+for adjacent = (inner, outer) do
+repeat
+b = adjacent base pair of S
+Sold = S; S = S ∪ {b}
+p
+σold = σ p ; σ p = σ p ∪ S
+calculate Prev [E(σ p )|A], Prth [E(σ p )|s]
+until average R1 of S < δ ||
+bp
+ev
+1
+(Pr [E(σ p )|A] < γ && n s Prth [E(σ p )|s] < γ)
+p
+p
+S = Sold ; σ = σold
+end for
+end for
+end for
+Figure 1 Pseudocode for Step 1.
+
+Step 2: Constrained expected accuracy scoring
+
+In the following, s1&s2 denote the concatenated
+sequences of the two sequences s1, s2 using the additional
+linker symbol & as done in RNAcofold. For Step 2 of the
+scoring, we calculate the expected accuracy of the ensemble of structures σ of s1&s2, which constitutes an interaction under the constraint that σ contains the partial
+p
+p
+reliable structures s 1 and s 2 of s1 and s2, respectively.
+Because we use the numbering convention of RNAcop
+p
+fold, the union s 1 ∪ s 2 of the two partial structures
+p
+p
+s 1 and s 2 is the partial structure of s1&s2.
+Now we have two problems to solve. On the one hand,
+we want to calculate the constrained accuracy given the
+p
+p
+partial structures s 1 and s 2 , which is defined as
+
+ev
+EA s p ,s p (s ) = EA s p ,s p (s ) +
+1
+
+2
+
+1
+
+2
+
+b
+th
+× EA s p ,s p (s ). (8)
+1
+2
+n
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+On the other hand, we have to find a combined score
+p
+s1
+
+p
+s2
+
+for the partial structures
+and
+, and the interaction
+σint to evaluate the quality of an predicted interaction.
+The score must be maximal according to Equation (8).
+We will demonstrate the problem and our solution for
+the thermodynamic folding. However, the same analysis
+applies to the evolutionary part, which is described later.
+
+Page 6 of 13
+
+is equivalent to the assumption that the two structures
+fold independently. We formulate this as follows:
+Pr[s 1 | s 2 , s1 & s 2 ] = Pr[s 1 | s1].
+
+Because σ1 and σ2 are partial joint structures, this can
+be written using the ensemble function
+
+The thermodynamic part
+
+The simplest formal solution to this problem would be to
+investigate directly the expected accuracy of joint structures σ:
+EA th (s )
+=
+
+∑ ∑| s (s
+
+1
+
+& s 2 , A) ∩ s ′ | × Pr th[s ′ | s1 & s 2 ]
+
+s1 & s 2 s ′
+
+=
+
+∑
+
+EA th& s 2 (s ( s1 & s 2 , A)),
+s1
+
+s1 & s 2 ∈A
+
+Pr[E 2,int (s 1) | E1,int (s 2 ), s1 & s 2 ] = Pr[s 1 | s1]. (9)
+
+The implication of this assumption is that the probabilities of the two structures σ1 and σ2 are merged independently into the joint probability Pr[εint(σ1∪σ2)|s1&s2], see
+Equation (11) below. First, note that for two partial structures
+Pr[E (s p ∪ s p′ ) | s] = Pr[E (s p ) ∧ E (s p′ ) | s],
+
+by definition. Hence,
+where EA th& s 2 (s ) is the expected accuracy of a strucs1
+ture in one sequence pair s1&s2 A .
+However, this would require that we compute the distribution Prth[σ|s1&s2], which can be done by a partition
+function approach for interacting structures. This is NPcomplete in the full model [18] and even O(n6) in a
+restricted model [19,20], which is why the two-step
+approach is necessary. In the following, we ignore the
+index "th" for simplicity.
+The relationship between EA s p ,s p (s ) and EA(σ) is
+1
+
+2
+
+now quantified. In the following, for a structure σ, we use
+σ1 ∪ σ2 ∪ σint to denote the partition of the base pairs of
+the first sequence, σ1, the base pairs of the second
+sequence, σ2, and the interacting base pairs, σint. Furthermore, for the partial structure σ, we use e1(σ) to denote
+the set of structures that extends σ using base pairs within
+the first sequence, i.e.,
+E1(s ) = {s ′ ⊇ s | ∀(i, j) ∈ s ′ \ s : 1 ≤ i < j ≤| s1 |}
+E 2(s ) = {s ′ ⊇ s | ∀(i, j) ∈ s ′ \ s :
+| s1 | +1 ≤ i < j ≤| s 2 |}
+E int (s ) = {s ′ ⊇ s | ∀(i, j) ∈ s ′ \ s :
+1 ≤ i ≤| s1 | ∧ | s1 | +1 ≤ j ≤| s 2 |}
+
+The ensembles e1,int(σ), e2,int(σ) and e1,2(σ) are defined
+analogously.
+Our approach uses one simplification, namely the
+assumption that the reliabilities for intra-molecular base
+pairs are dominated by the intra-molecular folding. This
+
+Pr[E int (s 1 ∪ s 2 ) | s1 & s 2 ]
+= Pr[E 2,int (s 1) ∧ E1,int (s 2 ) | s1 & s 2 ]
+= Pr[E 2,int (s 1) | E1,int (s 2 ), s1 & s 2 ]
+× Pr[E1,int (s 2 ) | s1 & s 2 ]
+Eq.(9)
+
+= Pr[s 1 | s1] × Pr[E1,int (s 2 ) | s1 & s 2 ].
+
+Intuitively, Pr[e1,int(σ2)|s1&s2] should be the same as
+Pr[σ2|s2]. This can be derived using the total probability
+formula:
+Pr[E1,int (s 2 ) | s1 & s 2 ]
+=
+
+⎛ Pr[E1,int (s 2 ) | E 2,int (s 1), s1 & s 2 ] ⎞
+⎟
+⎟
+2,int (s 1) | s1 & s 2 ]
+⎠
+
+∑ ⎜⎜⎝ × Pr[E
+s1
+
+Eq.(9)
+
+=
+
+∑ Pr[s
+
+2
+
+s1
+
+= Pr[s 2 | s 2 ] ×
+
+| s 2 ] × Pr[E 2,int (s 1) | s1 & s 2 ]
+
+∑ Pr[E
+
+2,int (s 1) | s1
+
+& s 2]
+
+s1
+
+= Pr[s 2 | s 2 ] × 1
+(10)
+
+Combining these equations we obtain the independence property:
+Pr[E int (s 1 ∪ s 2 ) | s1 & s 2 ] = Pr[s 1 | s1] × Pr[s 2 | s 2
+(11)
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+Page 7 of 13
+
+Now we will use this property to relate EA s p ,s p (s ) to
+1
+
+2
+
+EA(σ). The independence property, as described in Equation (9), and the additivity of the expectation is the implication of the expected accuracy of a joint structure, which
+is the sum of the expected accuracy of the intra-molecular structures and the expected accuracy of the intermolecular portion. To illustrate this, note that for any σ, σ'
+
+EA th & s (s ) = EA th (s 1 ) + EA th (s 2 )
+s
+s
+s
+1
+
+2
+
+1
+
++
+
+∑| s
+s
+
+2
+
+int
+
+′
+∩ s int | × Pr[s ′ | s1 & s2 ].
+
+′
+
+(12)
+
+For the expected accuracy of the interaction
+
+′
+| s ∩ s ′ |=| s 1 ∩ s 1 | + | s 2 ∩ s ′ | + | s int ∩ s ′ |
+2
+int
+
+EA th,int (s ) =
+
+∑| s
+
+int
+
+∩ s ′ | × Pr[s ′ | s1 & s 2 ]
+int
+
+s′
+
+by definition. Hence, by the additivity of the expectation we get
+
+we still need to define Pr[σ|s1&s2]. For every σ = σ1 σ2
+σint,
+
+∑| s ∩ s ′ | × Pr [s ′ | s & s ]
+= ∑ | s ∩ s ′ | × Pr[s ′ | s & s ]
++∑ | s ∩ s ′ | × Pr[s ′ | s & s ]
++∑ | s ∩ s ′ | × Pr[s ′ | s & s ].
+
+EA th& s 2 (s ) =
+s1
+
+th
+
+1
+
+(13)
+
+2
+
+s′
+
+1
+
+1
+
+1
+
+2
+
+2
+
+1
+
+Pr[s 1 ∪ s 2 ∪ s int | s1 & s 2 ]
+
+2
+
+2
+
+= Pr[E int (s 1 ∪ s 2 ) ∧ E1,2(s int ) | s1 & s 2 ]
+
+s′
+
+= Pr[E1,2(s int ) | E int (s 1 ∪ s 2 ), s1 & s 2 ]
+× Pr[E int (s 1 ∪ s 2 ) | s1 × s 2 ]
+
+s′
+
+int
+
+int
+
+1
+
+Eq.11)
+
+= Pr[E1,2(s int ) | E int (s 1 ∪ s 2 ), s1 & s 2 ]
+
+2
+
+s′
+
+Now
+
+we
+
+can
+
+rewrite
+
+′
+∑s ′ | s 1 ∩ s 1 | × Pr[s ′ | s1 & s 2]
+
+the
+
+first
+
+using the independence
+
+property as follows:
+
+∑| s ∩ s ′ | × Pr[s ′ | s & s ]
+= ∑ ∑ | s ∩ s ′ | × Pr[s ′ ∪ s ′ ∪ s ′
+1
+
+1
+
+1
+
+2
+
+1
+
+1
+
+2
+
+int
+
+Thus, in principle, to calculate the expected accuracy
+EAth, int (σ) for the interaction, we must sum over all structures in σ1 and σ2:
+EA th,int (s )
+
+s′
+
+1
+
+× Pr[s 1 | s1] × Pr[s 2 | s 2 ]
+
+term
+
+| s1 & s 2 ]
+
+=
+
+∑| s
+
+1
+
+′
+′
+∩ s 1 | × Pr[E 2,int (s 1) | s1 & s 2 ]
+
+=
+
+=
+
+∑| s
+
+1
+
+′
+′
+∩ s 1 | × Pr[s 1 | s1],
+
+′
+s1
+
+which is the expected accuracy of σ1 in the sequence s1.
+Analogously, we can do this for the second term
+
+∑
+
+s′
+
+| s 2 ∩ s ′ | × Pr[s ′ | s1 & s 2 ] . Thus, EA th& s 2 (s ) is
+2
+s1
+
+the sum of the expected accuracies in the first and the
+second sequences and the expected accuracy of the interaction:
+
+∑| s
+′
+s int
+
+′
+s1
+
+Eq.(10)
+
+int
+
+′
+∩ s ′ | × Pr[s ′ ∪ s 1 ∪ s ′ | s1 & s 2 ]
+int
+int
+2
+
+′ 2
+s ′ s 1 ,s ′
+int
+
+′
+′
+s 1 s ′ ,s int
+2
+
+=
+
+∑ ∑ |s
+int
+
+∩ s ′ |×
+int
+
+∑ Pr[s ′
+
+int
+
+′
+∪ s 1 ∪ s ′ | s1 & s 2 ]
+2
+
+′ 2
+s 1 ,s ′
+
+Because this is not feasible, we restrict ourselves to an
+ensemble of structures. Thus, instead of summing over all
+p
+possible σ1 and σ2, we use the partial structures s 1 and
+p
+s 2 that were determined in the first step and approximate EAth,int(σ) by
+
+EA th,int ′(s )
+=
+
+∑ | s int ∩ s ′int | × ∑
+
+′
+s int
+
+p
+′
+s 1∈E (s 1 )
+p
+s ′ ∈E (s 2 )
+2
+
+′
+Pr[s ′ ∪ s 1 ∪ s ′ | s1 & s 2 ]
+2
+int
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+Page 8 of 13
+
+The second sum can now be simplified as follows:
+
+∑
+
+inter-molecular base pairs between s1 and s2 in this step.
+However, the recursion scheme of RNAcofold could
+easily be adapted to use new symbols for base pair constraints and a scoring scheme that is common to hierarchical approaches of pseudoknot structure prediction,
+which would avoid these problems.
+Finally, we can rewrite the thermodynamic accuracy as
+the sum of probabilities as indicated in Equation (5). As
+
+′
+Pr[s ′ ∪ s 1 ∪ s ′ | s1 & s 2 ]
+int
+2
+
+p
+′
+s 1∈E (s 1 )
+p
+s ′ ∈E (s 2 )
+2
+
+p
+p
+= Pr[E1,2(s ′ ∪ s 1 ∪ s 2 ) | s1 & s 2 ]
+int
+p
+p
+= Pr[E1,2(s ′ ) ∧ E (s 1 ∪ s 2 ) | s1 & s 2 ]
+int
+
+shown in Equation (12), for a base pair (i, j) ∈ s p (< = 1,
+2), we want to use the probability of the associated
+sequence. To avoid competition with the probabilities for
+the intra-molecular base pairs calculated from RNAcofold, we set all of these base pairs to the same probabil-
+
+p
+p
+= Pr[E1,2(s ′ ) | E (s 1 ∪ s 2 ), s1 & s 2 ]
+int
+p
+p
+× Pr[E (s 1 ∪ s 2 ) | s1 & s 2 ]
+Eq.(11′)
+
+=
+
+p
+p
+Pr[E1,2(s ′ ) | E (s 1 ∪ s 2 ), s1 & s 2 ]
+int
+
+p
+p
+× Pr[E1(s 1 ) | s1] × Pr[E 2(s 2 ) | s 2 ],
+
+ity Pr th[E (s p (s , A )) | s ] as described in Equation
+
+where Equation (11') indicates the variation of the independence assumption of Equation (11) for the structure
+ensembles (see additional file 1). Thus, we finally have
+EA th ,int ′(s )
+=
+
+∑
+′
+s int
+
+p
+p
+⎛ | s int ∩ s ′ | × Pr[E1(s 1 ) | s1] × Pr[E 2(s 2 )
+int
+⎜
+⎜ × Pr[E (s ′ ) | E (s p ∪ s p ), s & s ]
+1,2
+int
+1
+2
+1
+2
+⎝
+
+(14)
+p
+p
+Now Pr[E1,2(s ′ ) | E (s 1 ∪ s 2 ), s1 & s 2 ] is the conint
+p
+strained folding, where the positions covered by s 1 and
+p
+s 2 are fixed. However, we have the problem that these
+structures might contain pseudoknots. Recall that the
+p
+p
+positions in s 1 and s 2 are fixed for folding and that we
+p
+p
+are considering all structures σ that contain s 1 ∪ s 1
+p
+p
+and are nested on s int = s \ (s 1 ∪ s 2 ) . Technically, we
+solve the problem using the fact that the set of structures
+p
+p
+that is nested on σint and compatible with s 1 ∪ s 1 is
+selected by considering all structures where the positions
+p
+p
+of s 1 ∪ s 2 are constrained as single-stranded. This
+implies that we use constrained cofolding via RNAcofold (parameters -C -p -d2), and the constraint ...
+x1x1 ... & ... x2x2 ..., where x1 (resp. x2) denotes a position
+p
+p
+from s 1 (resp. s 2 ) that is constrained as singlestranded. The main difference is that the energy contributions could be slightly different, and therefore, we
+obtain only an approximation of the real distribution. For
+p
+example, an extension of a helix in s 1 would be evaluated as an internal loop or hairpin. Note that this is not a
+major problem because we are mainly interested in the
+
+(7). For the inter-molecular base pairs, we use the base
+pair probabilities as provided by RNAcofold with conp
+p
+straints, which model Pr[s ′ | E (s 1 ∪ s 2 ) ∧ s1 & s 2 ] from
+the constrained cofolding. However, these raw base pair
+2,
+probabilities (in the following denoted by Prbpth (i, j) )
+,raw
+p
+p
+are calculated under the constraint of s 1 ∪ s 2 and have
+therefore (to obtain the final base pair probabilities) to be
+p
+p
+multiplied by Pr[E1(s 1 ) | s1] × Pr[E 2(s 2 ) | s 2 ] as indicated by Equation (14). Thus, we can score each base pair
+as follows:
+
+2,
+Prbpth (i, j, s1 & s 2 )
+th
+⎧ 1 × Prbp (i, j, s1) if 1 ≤ i, j ≤| s1 |
+⎪
+th
+⎪
+= ⎨ 1 × Prbp (i, j, s 2 ) if | s1 | +1 ≤ i, j ≤| s 2 |
+⎪ 2,th
+Pr th[E (s p ( s , A)) | s ]
+⎪ Prbp,raw (i, j) ×
+=1,2
+⎩
+(15)
+
+∏
+
+where the 1 reflects the fixed reliability. However, we
+deviate from this scoring to weaken the independence
+assumption for the intra-molecular base pairs, which
+allows us to determine new intra-molecular base pairs
+from the constrained application of RNA-cofold. Thus,
+we score only the base pairs from the partial structures
+p
+p
+s 1 and s 2 with the probability in the associated
+sequence. In addition, to avoid competition with the
+probabilities for these base pairs calculated from RNAcofold, we simply set all of these base pairs to the same
+
+probability Pr th[E (s p (s , A )) | s ] as described in
+Equation (7). To summarise, given the partial consensus
+p
+p
+structures s 1 and s 2 for an alignment A1 & A2 as cal-
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+culated in Step 1, the probability for a base pair (i, j) in
+sequence s1 &s2 ∈ A1 & A2 in the second step is:
+
+Page 9 of 13
+
+2,
+tionary reliabilities Rbpev (i, j) for a base pair (i, j) and
+2,
+Rss ev (i) for a single-stranded position i are calculated in
+2,
+the same manner as Prbpth (i, j, s1 & s 2 ) in Equation (16):
+
+2,
+Prbpth (i, j, s1 & s 2 )
+p
+p
+⎧ 1 × Pr th[E1(s 1 ( s1 , A)) | s1] if (i, j) ∈ s 1
+⎪
+th
+p
+p
+⎪
+= ⎨ 1 × Pr [E 2(s 2 ( s 2 , A)) | s 2 ] if (i, j) ∈ s 2
+⎪ 2,th
+Pr th[E (s p ( s , A)) | s ]
+⎪ Prbp,raw (i, j) ×
+=1,2
+⎩
+(16)
+
+2,
+Rbpev (i, j, A1 & A2 )
+p
+p
+⎧ 1 × Pr ev [E1(s 1 ) | A1]
+if (i, j) ∈ s 1
+⎪
+ev
+p
+p
+⎪
+if (i, j) ∈ s 2
+= ⎨ 1 × Pr [E 2(s 2 ) | A2 ]
+⎪ 2,ev
+Pr ev [E (s p ) | A ]
+e
+⎪ Rbp,raw (i, j) ×
+=1,2
+⎩
+(18)
+
+∏
+
+∏
+
+Single-stranded probabilities
+
+Single-stranded probabilities are integrated in a similar
+way as the base pair probabilities, but with different
+weighting. The single-stranded probabilities are as follows:
+2
+Prss,th (i, s1
+
+2
+as well as Prss,th (i, s1 & s 2 ) in Equation (17):
+
+2
+Rss,ev (i, A1 & A2 )
+
+& s 2)
+
+p
+p
+⎧0
+if ∃j with (i, j) ∈ s 1 or ( j, i) ∈ s 1
+⎪
+p
+p
+⎪
+if ∃j with (i, j) ∈ s 2 or ( j, i) ∈ s 2
+= ⎨0
+⎪ 2,ev
+else
+Pr ev [E (s p ) | A ]
+⎪ Rss,raw (i) ×
+=1,2
+⎩
+(19)
+
+p
+p
+⎧0
+if ∃j with (i, j) ∈ s 1 or ( j, i) ∈ s 1
+⎪
+p
+p
+⎪
+if ∃j with (i, j) ∈ s 2 or ( j, i) ∈ s 2
+= ⎨0
+⎪ 2,th
+Pr th[E (s p ( s , A)) | s ] el
+⎪ Prss,raw (i) ×
+=1,2
+⎩
+(17)
+
+∏
+
+∏
+
+The
+Given the structure σ on an alignment A with m columns, the set of all single-stranded positions in the consensus structure is denoted as ss(σ) = {i ∉ σ|1 ≤ i ≤ m}.
+Taking this into consideration, the complete version of
+Equation (2) is
+EA th (s )
+=
+
+∑ [| s ∩ s ′ | +a | ss(s ) ∩ ss(s ′) |] × Pr
+
+th
+
+[s ′( s, A) | s]
+
+s ,s ′
+
+and the evolutionary accuracy is determined similarly.
+The combined score is the sum of the base pair reliabilities and single-stranded reliabilities (weighted with the
+parameter α). For details, see [25].
+The evolutionary part
+
+The calculation for the presented thermodynamic accuracy is purely based on constrained folding. To obtain the
+complete constrained folding, we use the same approach
+for the evolutionary accuracy by applying a version of
+Pfold[28] that incorporates the constraints. For that
+2,
+purpose, the raw structural reliabilities Rbpev (i, j) and
+,raw
+2
+Rss,,ev (i) are calculated by the constrained folding with
+raw
+
+Pfold using the phylogenetic tree deduced from the
+concatenated alignment. As a linker, three prior-free columns are inserted between both alignments. The evolu-
+
+Pr
+
+ev
+
+probabilities
+
+p
+[E1(s 1 ) | A1]
+
+of
+
+and Pr
+
+ev
+
+the
+
+partial
+
+p
+[E 2(s 2 ) | A2 ]
+
+structures
+
+are calculated
+
+p
+Input:
+A1 &A2 = concatenate(A1 , A2 )
+Css = . . . x1 x1 . . . & . . . x2 x2 . . ., where x’s are
+p
+p
+single-stranded constraints and x1 ∈ σ1 , x2 ∈ σ2
+Search σint constrained by Css :
+calculate tree TA1 &A2 ,
+phylogenetic reliabilities R2,ev ,
+raw
+thermodynamic probabilities Pr2,th
+raw
+for all (i, j) do
+if (i, j) ∈ σ p for =(1,2) then
+R2,ev (i, j) ← Prev [E (σ p )|A ]
+bp,raw
+R2,ev (i) ← 0
+ss,raw
+Pr2,th (i, j) ← Prth [E (σ p )|s ]
+bp,raw
+Pr2,th (i) ← 0
+ss,raw
+else
+ev p
+R2,ev ← R2,ev ×
+raw
+=1,2 Pr [σ |A ]
+2,th
+th p
+2,th
+← Prraw ×
+R
+=1,2 Pr [σ (s , A)|s ]
+end if
+=⇒ R2 (i, j), R2 (i) ← PETfold model
+ss
+bp
+end for
+σint ← MEA-structure constrained by Css
+Output:
+p
+p
+σ1 ∪ σ2 ∪ σint
+Figure 2 Pseudocode for Step 2.
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+Page 10 of 13
+
+as described in Equation (6). Step 2 is summarised as
+pseudocode in 1.
+The final scoring
+
+To summarise the reliabilities, a combined structure will
+be determined using the Nussinov algorithm on the following reliabilities:
+2
+2,
+Rbp (i, j) = Rbpev (i, j, A1 & A2 ) +
+
+b
+n
+
+∑ Pr
+
+2,th
+bp (i,
+
+j , s1 & s 2 )
+
+s1 & s 2
+
+2
+Rs2 (i) = Rss,ev (i, A1 & A2 ) +
+s
+
+b
+n
+
+∑ Pr
+
+2,th
+ss (i, s1
+
+& s 2 ),
+
+s1 & s 2
+
+2,
+2
+where Rbpev (i, j, A1 & A2 ) and Rss,ev (i, A1 & A2 ) are
+2,
+defined as above, Prbpth (i, j, s1 & s 2 ) as in Equation (16)
+2
+and Prss,th (i, s1 & s 2 ) as in Equation (17).
+p
+p
+Note that the base pairs in s 1 ∪ s 2 have a weight of 0
+during folding of the constrained structure to allow for
+pseudoknot formation. Finally, we add the base pairs in
+p
+p
+s 1 ∪ s 2 to the constrained structure of Step 2. The flow
+of the structure reliabilities in the pipeline is summarised
+in Figure 3.
+
+Results and discussion
+The algorithm presented herein was implemented in
+PETcofold (Seemann et al., submitted). As a proof of
+concept, we present an example of a bacterial sRNAmRNA interaction. The in-depth analysis is described
+elsewhere (Seemann et al., submitted).
+Joint structure prediction of bacterial sRNA OxyS and its
+target mRNA fhlA
+
+The small RNA OxyS represses the translation of the
+mRNA fhlA, which is mediated through base pairing at
+the ribosome binding site [11]. However, the OxyS-fhlA
+interaction involves a second binding site within the coding region of fhlA. Both interaction sites reside in stem
+loops such that OxyS and fhlA form a double kissing hairpin interaction.
+Figure 4 shows the alignment and joint secondary
+structure prediction of the OxyS-fhlA complex, i.e., the
+secondary structures of OxyS and fhlA and the interaction between them, as predicted by our algorithm. The
+result of the prediction without extending the constrained stems is shown in Figure 4a, and the result with
+the extension of the constrained stems is shown in Figure
+4b.
+
+Figure 3 Scoring pipeline. The pipeline illustrates the flow of base
+pair probabilities during the structure scoring. The PETcofold pipeline
+consists of two steps: (a) intra-molecular folding by PETfold of both
+alignments and selection of a set of highly reliable base pairs that form
+the partial structures σp; (b) inter-molecular folding by an adaptation of
+PETfold of the concatenated alignments using the constraints from
+Step 1. In the end, (c) the partial structures and constrained inter-molecular structures are combined to generate the joint secondary structure including pseudoknots.
+
+For OxyS-fhlA, our algorithm was able to consistently
+predict one of the two interaction sites. The second interaction site, which is situated in the fhlA coding region,
+was only predicted when the constrained stems were not
+extended in Step 1 of our algorithm. Otherwise the stem
+of fhlA that resides the second interaction site was
+extended both by inner and outer base pairs. Consequently, the unpaired region of the hairpin containing the
+second interaction site became shorter such that no
+interaction was predicted at this site.
+Algorithmic restrictions and potentials
+
+The algorithm supports pseudoknots between the intramolecular and inter-molecular base pairs, while the time
+complexity of O(N × I × L3) is much lower than that of
+other approaches with the same ability. The time complexity is in the magnitude of PET-fold for the added
+sequence length L of both alignments, and it is linear with
+respect to the number of sequences N in the alignments
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+Page 11 of 13
+
+Figure 4 Joint secondary structure prediction of the sRNA OxyS and its target mRNA fhlA. The sequence alignment shows the two input alignments concatenated by the linker symbol "&", the joint secondary structure predicted by our algorithm (with δ = 0.9 and γ = 0.1 and disallowing base
+pairs that only occur isolated in the thermodynamic part) and the interaction model of OxyS-fhlA [11]. The prediction was performed (a) without and
+(b) with extension of the constrained stems. Angle brackets indicate inter-molecular base pairs between the two RNAs. Round and square brackets
+indicate intra-molecular base pairs. Square brackets indicate base pairs of the partial structure σp. Shown are all columns with < 75% gaps. Jalview [33]
+was used for alignment visualisation.
+
+and the number of iterations I in the adaptation of δ to
+find probable partial structures (I <M/2, where M is the
+sequence length of the longer alignment).
+Pfold combines a SCFG with evolutionary information from an alignment of RNA sequences through an
+explicit evolutionary model. It is not clear whether the
+model learned from tRNA and rRNA secondary structures is appropriate for RNA cofolding. To avoid the bias
+of a wrong prior probability distribution Pr[σ|T, M] during the evolutionary scoring of the cofolding step, we
+omitted all SCFG rule probabilities as well as base pair
+substitution rates. In these cases, all base pair probabilities were calculated independently, and the different substitution rates of base pairs were ignored; thus, we
+observed that the entire performance decreased. A possible optimisation would be an adapted prior distribution
+
+for the cofolding step, which could be generated when
+sufficient verified RNA-RNA interaction data becomes
+available. However, the prediction of RNA secondary
+structure using evolutionary history is robust for different evolutionary speeds and substitution rate variations
+[32]. Hence, it is reasonable to assume that the deviation
+is fairly low using the prior probability distribution of
+intra-molecular structures.
+The presented method assumes that both alignments
+have the same evolutionary history during the cofolding
+step. A more accurate method would consider independent phylogenetic trees for both RNAs, such as in Step 1,
+and a common tree for the interaction site. However, we
+do not know the interacting region in advance; thus, we
+would need an expectationm maximization algorithm,
+which would increase the running time of the algorithm
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+to an unreasonable level. Furthermore, the energy contribution of the cofolding step might be slightly biased due
+to the constraint of the partial structures as singlestranded. We partly solve the resulting intra-molecular
+false predictions by extending the reliable stems in the
+partial structures, and, as already mentioned above, the
+RNAcofold algorithm and scoring scheme could be
+adapted to handle base pair constraints as singlestranded.
+Furthermore, there is a limitation of the presented
+method with regard to interaction sites that are located
+outside conserved RNA structures. These regions are
+hard to align if they are, in addition, sequentially unconserved. Thus, our method will most likely miss binding
+sites located in unstructured and otherwise unrelated
+regions, e.g., miRNA target sites in UTR regions. However, once a correct alignment is found for these regions,
+then the presented approach still works if the interaction
+region is conserved or shows enough covariation.
+Our algorithm is able to predict pseudoknots between
+the intra-molecular and (inter-)molecular base pairs. In
+addition, we are interested in more pseudoknots that can
+be predicted in a similar way using a pipeline of constrained structures. During an iteration of Step 2, additional reliable partial inter-molecular structures are
+constrained as long as new reliable base pairs appear. The
+final consensus structure is the union of all cofolding base
+pairs and the partial structures. The main unsolved problem is the weighted combination of the decreasing partial
+structure probabilities in one scoring scheme when the
+amount of constraints increases with each iteration.
+
+Conclusions
+In summary, we introduced an extension of the PETfold algorithm for the identification of interactions
+between two sets of multiple aligned RNA sequences,
+which exploits compensating base changes while taking
+intra-molecular partial structures and interaction sites
+into account. The implementation of the algorithm in
+PETcofold and its application are described in Seemann et al. (submitted).
+Additional material
+Additional file 1 Probability distributions of the Pfold model and
+Implications of the independence property. Combined probability distributions of the Pfold model and theimplications of the independence
+property (Equation (11)) for partial structures are described.
+Competing interests
+The authors declare that they have no competing interests.
+Authors' contributions
+SES, RB and JG designed the algorithm. SES implemented the algorithm. ASR
+designed and performed the analysis of the algorithm. RB drafted the manuscript. All authors contributed to the manuscript, read and approved the final
+manuscript.
+
+Page 12 of 13
+
+Acknowledgements
+We thank Bjarne Knudsen for inspiring discussions about extensions of the
+Pfold method.
+This work was supported by the Lundbeck Foundation (grant 374/06 to J.G.),
+the Danish Research Council for technology and production (grant 274-090282 to J.G.), the Danish Center for Scientific Computation (J.G.), the German
+Federal Ministry of Education and Research (BMBF grant 0313921 FRISYS to
+R.B.) and the German Research Foundation (DFG grant BA 2168/2-1 SPP 1258
+to A.S.R. and R.B.).
+Author Details
+1Center for non-coding RNA in Technology and Health, IBHV, University of
+Copenhagen, Grønnegårdsvej 3, Frederiksberg C, 1870, Denmark and
+2Bioinformatics Group, University of Freiburg, Georges-Köhler-Allee 106,
+Freiburg, 79110, Germany
+Received: 10 April 2010 Accepted: 21 May 2010
+Published: 21 May 2010
+© 2010 Seemann et al; licensee BioMed Central Ltd. terms of the Creative Commons Attribution License (http://creativecommons.org/licenses/by/2.0), which permits unrestricted use, distribution, and reproduction in any medium, provided the original work is properly cited.
+This is an Open Access from: http://www.almob.org/content/5/1/22
+Algorithms for Molecular Biology 2010, 5:22
+article is available article distributed under the
+
+References
+1. Washietl S, Hofacker IL, Lukasser M, Hüttenhofer A, Stadler PF: Genomewide mapping of conserved RNA secondary structure structures
+predicts thousands of functional non-coding RNAs in human. Nature
+Biotechnology 2005, 23:1383-1390.
+2. Pedersen JS, Bejerano G, Siepel A, Rosenbloom K, Lindblad-Toh K, Lander
+ES, Kent J, Miller W, Haussler D: Identification and classification of
+conserved RNA secondary structures in the human genome. PLoS
+Comput Biol 2006, 2:e33.
+3. Torarinsson E, Sawera M, Havgaard JH, Fredholm M, Gorodkin J:
+Thousands of corresponding human and mouse genomic regions
+unalignable in primary sequence contain common RNA structure.
+Genome Research 2006, 16:885-889. [(Erratum in: Genome Res. 2006
+16:1439)].
+4. Uzilov AV, Keegan JM, Mathews DH: Detection of non-coding RNAs on
+the basis of predicted secondary structure formation free energy
+change. BMC Bioinformatics 2006, 7:173.
+5. Washietl S, Pedersen JS, Korbel JO, Stocsits C, Gruber AR, Hackermüller J,
+Hertel J, Lindemeyer M, Reiche K, Tanzer A, Ucla C, Wyss C, Antonarakis SE,
+Denoeud F, Lagarde J, Drenkow J, Kapranov P, Gingeras TR, Guigó R,
+Snyder M, Gerstein MB, Reymond A, Hofacker IL, Stadler PF: Structured
+RNAs in the ENCODE selected regions of the human genome. Genome
+Research 2007, 17:852-864.
+6. Will S, Reiche K, Hofacker IL, Stadler PF, Backofen R: Inferring noncoding
+RNA families and classes by means of genome-scale structure-based
+clustering. PLoS Computational Biology 2007, 3:e65.
+7. Torarinsson E, Yao Z, Wiklund ED, Bramsen JB, Hansen C, Kjems J,
+Tommerup N, Ruzzo WL, Gorodkin J: Comparative genomics beyond
+sequence based alignments: RNA structures in the ENCODE regions.
+Genome Research 2008, 18:242-251.
+8. Backofen R, Hess WR: Computational prediction of sRNAs and their
+targets in bacteria. RNA Biol 2010, 7:.
+9. Mückstein U, Tafer H, Hackermüller J, Bernhart SH, Stadler PF, Hofacker IL:
+Thermodynamics of RNA-RNA binding. Bioinformatics 2006,
+22(10):1177-82.
+10. Busch A, Richter AS, Backofen R: IntaRNA: efficient prediction of
+bacterial sRNA targets incorporating target site accessibility and seed
+regions. Bioinformatics 2008, 24(24):2849-56.
+11. Argaman L, Altuvia S: fhlA repression by OxyS RNA: kissing complex
+formation at two sites results in a stable antisense-target RNA
+complex. Journal of Molecular Biology 2000, 300(5):1101-12.
+12. Andronescu M, Zhang ZC, Condon A: Secondary structure prediction of
+interacting RNA molecules. Journal of Molecular Biology 2005,
+345(5):987-1001.
+13. Bernhart SH, Tafer H, Mückstein U, Flamm C, Stadler PF, Hofacker IL:
+Partition function and base pairing probabilities of RNA heterodimers.
+Algorithms Mol Biol 2006, 1:3.
+14. Dirks RM, Bois JS, Schaeffer JM, Winfree E, Pierce NA: Thermodynamic
+Analysis of Interacting Nucleic Acid Strands. SIAM Review 2007,
+49:65-88.
+15. Zuker M: Prediction of RNA secondary structure by energy
+minimization. Methods in Molecular Biology 1994, 25:267-94.
+
+Seemann et al. Algorithms for Molecular Biology 2010, 5:22
+http://www.almob.org/content/5/1/22
+
+16. Hofacker IL, Fontana W, Stadler PF, Bonhoeffer S, Tacker M, Schuster P: Fast
+Folding and Comparison of RNA Secondary Structures. Monatshefte
+Chemie 1994, 125:167-188.
+17. Pervouchine DD: IRIS: intermolecular RNA interaction search. Genome
+Inform 2004, 15(2):92-101.
+18. Alkan C, Karakoc E, Nadeau JH, Sahinalp SC, Zhang K: RNA-RNA
+interaction prediction and antisense RNA target search. Journal of
+Computational Biology 2006, 13(2):267-82.
+19. Chitsaz H, Salari R, Sahinalp SC, Backofen R: A partition function
+algorithm for interacting nucleic acid strands. Bioinformatics 2009,
+25(12):i365-73.
+20. Huang FWD, Qin J, Reidys CM, Stadler PF: Partition function and base
+pairing probabilities for RNA-RNA interaction prediction.
+Bioinformatics 2009, 25(20):2646-54.
+21. Huang FWD, Qin J, Reidys CM, Stadler PF: Target prediction and a
+statistical sampling algorithm for RNA-RNA interaction. Bioinformatics
+2010, 26(2):175-81.
+22. Chitsaz H, Backofen R, Sahinalp SC: biRNA: Fast RNA-RNA Binding Sites
+Prediction. Proc. of the 9th Workshop on Algorithms in Bioinformatics
+(WABI), Volume 5724 of Lecture Notes in Computer Science 2009:25-36.
+23. Salari R, Backofen R, Sahinalp SC: Fast prediction of RNA-RNA Interaction.
+Proc. of the 9th Workshop on Algorithms in Bioinformatics (WABI), Volume
+5724 of Lecture Notes in Computer Science 2009:261-272.
+24. Salari R, Möhl M, Will S, Sahinalp SC, Backofen R: Time and space efficient
+RNA-RNA interaction prediction via sparse folding. Proc of RECOMB
+2010 2010 in press.
+25. Seemann SE, Gorodkin J, Backofen R: Unifying evolutionary and
+thermodynamic information for RNA folding of multiple alignments.
+Nucleic Acids Research 2008, 36:6355-6362.
+26. Gaspin C, Westhof E: An interactive framework for RNA secondary
+structure prediction with a dynamical treatment of constraints. J Mol
+Biol 1995, 254:163-174.
+27. Jabbari H, Condon A, Pop A, Pop C, Zhao Y: HFold: RNA Pseudoknotted
+Secondary Structure Prediction Using Hierarchical Folding. In
+Algorithms in Bioinformatics, 7th International Workshop, WABI Philadelphia,
+PA, USA, September 8-9, 2007, Proceedings 2007:323-334.
+28. Knudsen B, Hein JJ: RNA secondary structure prediction using
+stochastic context-free grammars and evolutionary history.
+Bioinformatics 1999, 15:446-454.
+29. McCaskill JS: The equilibrium partition function and base pair binding
+probabilities for RNA secondary structure. Biopolymers 1990, 29(67):1105-19.
+30. Nussinov R, Pieczenik G, Griggs JR, Kleitman DJ: Algorithms for Loop
+Matchings. SIAM Journal on Applied Mathematics 1978, 35:68-82.
+31. Ding Y, Chan CY, Lawrence CE: RNA secondary structure prediction by
+centroids in a Boltzmann weighted ensemble. RNA 2005, 11(8):1157-66.
+32. Knudsen B, Andersen ES, Damgaard C, Kjems J, Gorodkin J: Evolutionary
+rate variation and RNA secondary structure prediction. Comput Biol
+Chem 2004, 28(3):219-226.
+33. Waterhouse AM, Procter JB, Martin DMA, Clamp M, Barton GJ: Jalview
+Version 2-a multiple sequence alignment editor and analysis
+workbench. Bioinformatics 2009, 25(9):1189-91.
+doi: 10.1186/1748-7188-5-22
+Cite this article as: Seemann et al., Hierarchical folding of multiple sequence
+alignments for the prediction of structures and RNA-RNA interactions Algorithms for Molecular Biology 2010, 5:22
+
+Page 13 of 13
+
+</pre>
+</body>
+</html>

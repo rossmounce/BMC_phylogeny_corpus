@@ -1,0 +1,6283 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>1471-2105-6-63.fm</title>
+<meta name="Author" content="csproduction"/>
+<meta name="Creator" content="FrameMaker 7.0"/>
+<meta name="Producer" content="Acrobat Distiller 5.0.5 (Windows)"/>
+<meta name="CreationDate" content=""/>
+</head>
+<body>
+<pre>
+BMC Bioinformatics
+
+BioMed Central
+
+Open Access
+
+Research article
+
+Evolutionary models for insertions and deletions in a probabilistic
+modeling framework
+Elena Rivas*
+Address: Department of Genetics, Washington University School of Medicine, 4444 Forest Park Blvd., Saint Louis, Missouri 63108 USA
+Email: Elena Rivas* - elena@genetics.wustl.edu
+* Corresponding author
+
+Published: 21 March 2005
+BMC Bioinformatics 2005, 6:63
+
+doi:10.1186/1471-2105-6-63
+
+Received: 16 December 2004
+Accepted: 21 March 2005
+
+This article is available from: http://www.biomedcentral.com/1471-2105/6/63
+© 2005 Rivas; licensee BioMed Central Ltd.
+This is an Open Access article distributed under the terms of the Creative Commons Attribution License (http://creativecommons.org/licenses/by/2.0),
+which permits unrestricted use, distribution, and reproduction in any medium, provided the original work is properly cited.
+
+Abstract
+Background: Probabilistic models for sequence comparison (such as hidden Markov models and
+pair hidden Markov models for proteins and mRNAs, or their context-free grammar counterparts
+for structural RNAs) often assume a fixed degree of divergence. Ideally we would like these models
+to be conditional on evolutionary divergence time.
+Probabilistic models of substitution events are well established, but there has not been a completely
+satisfactory theoretical framework for modeling insertion and deletion events.
+Results: I have developed a method for extending standard Markov substitution models to include
+gap characters, and another method for the evolution of state transition probabilities in a
+probabilistic model. These methods use instantaneous rate matrices in a way that is more general
+than those used for substitution processes, and are sufficient to provide time-dependent models
+for standard linear and affine gap penalties, respectively.
+Given a probabilistic model, we can make all of its emission probabilities (including gap characters)
+and all its transition probabilities conditional on a chosen divergence time. To do this, we only need
+to know the parameters of the model at one particular divergence time instance, as well as the
+parameters of the model at the two extremes of zero and infinite divergence.
+I have implemented these methods in a new generation of the RNA genefinder QRNA (eQRNA).
+Conclusion: These methods can be applied to incorporate evolutionary models of insertions and
+deletions into any hidden Markov model or stochastic context-free grammar, in a pair or profile
+form, for sequence modeling.
+
+Background
+Probabilistic models are widely used for sequence analysis
+[1]. Hidden Markov models (HMMs) are a very large class
+of probabilistic models used for many problems in biological sequence analysis such as sequence homology
+searches [2-4], sequence alignment [5], or protein genefinding [6-8]. Stochastic context-free grammars (SCFGs)
+
+are another class of probabilistic models used for structural RNAs for problems such as RNA homology searches
+[9-13], RNA structure prediction [14,15], and RNA genefinding [16].
+Sequence similarity methods based on HMMs or SCFGs
+can take the form of profile or pair models and are very
+
+Page 1 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+important for comparative genomics. These probabilistic
+methods for sequence comparison assume a certain
+degree of sequence divergence. For instance, in profile
+models (either profile HMMs [2-4] or profile SCFGs
+[12,13]) a sequence is compared to a consensus model.
+Profile models must allow for the occurrence of insertions
+and deletions with respect to the consensus, and they do
+so by using state transition probabilities that assign some
+position-dependent penalties for modifying the consensus with insertions or deletions. Similarly, in pair probabilistic models [8,16] two related sequences are compared
+(aligned and/or scored). Pairwise alignments need to
+allow for substitution, insertion and deletion events
+between the two related sequences. Substitutions are
+taken care of by residue emission probabilities, while
+insertion and deletion events are generally taken care of
+by state transition probabilities as in the case of profile
+HMMs.
+
+very important goal in order to make those probabilistic
+models more realistic.
+
+In the BLAST programs [17], the score of a pairwise alignment is determined using substitution matrices which
+measure the degree of similarity between two aligned residues. Similarly, in pair probabilistic models, residue
+emission probabilities are based on substitution matrices.
+The evolution of substitution matrices has been studied at
+large for many different kinds of processes: nucleotides,
+amino acids, codons, or RNA basepairs [18-23]. The evolution of emission probabilities using substitution matrices is easily integrated into probabilistic models both for
+HMMs [24-29] and for SCFGs [14].
+
+Because QRNA includes both linear and affine gap models in different places, in this paper I propose algorithms
+to describe the evolution of indels as a (N + 1)-th character in a substitution matrix, and algorithms to describe the
+evolution of the transition probabilities associated with a
+probabilistic model.
+
+In probabilistic models, insertion and deletion events
+(indels) are sometimes described by treating indels as an
+additional residue (gap characters) in a substitution
+matrix. More often they are described using additional
+hidden states, where transition probabilities into those
+states represent the cost of gap initiation and transitions
+within those states represent the cost of gap extension. If
+the cost of gap initiation and gap extension are identical,
+it is referred to as a linear gap cost model. Hidden states
+allow arbitrary costs for gap initiation and gap extension,
+which is traditionally referred to as an affine gap cost
+model. Treating gaps as an extra character in a substitution
+matrix is equivalent to assuming a linear gap cost model.
+The parameters that modulate those processes should be
+allowed to change as the divergence time for the
+sequences being compared is varied. It has been difficult
+to combine probabilistic models such as profile and pair
+HMMs or SCFGs with evolutionary models for insertion
+and deletions [30-33]. Methods to evolve transition probabilities are not as well developed as those describing substitution matrices, but significant effort is currently aimed
+at this problem [34-41]. Models incorporating the evolution of insertions and deletions in the context of probabilistic models such as profile HMMs or pair models are a
+
+I encountered this problem in working on QRNA, a computational program to identify noncoding RNA genes de
+novo. QRNA uses probabilistic comparative methods to
+analyze the pattern of mutation present in a pairwise
+alignment in order to decide whether the compared
+nucleic acid sequences are more likely to be protein-coding, structural RNA encoding, or neither. Originally
+QRNA was parameterized at a fixed divergence time.
+Motivated by the goal of making QRNA a time dependent
+parametric family of models, I investigated the possibility
+of evolving the transition and emission probabilities associated with a given probabilistic model. Since I already
+had the model parameterized for a given time, I aimed to
+use that model as a generating point of the whole timeparameterized family of models.
+
+The purpose of this paper is to describe the general theoretical framework behind these methods. A detailed
+description of the particular implementation of these
+algorithms in QRNA and a discussion of the results
+obtained with "evolutionary QRNA" (eQRNA) will
+appear in a complementary publication.
+
+Results
+Evolutionary models for emission probabilities
+The evolution of emission probabilities without gaps
+In order to introduce notation, I will start with a brief
+review of the current methods for calculating joint probabilities conditional on time, P(i, j|t), where i, j are two residues (for instance, nucleotides, amino acids, RNA
+basepairs, or codons). P(i, j|t) gives us the probability that
+residues i and j are observed at a homologous site in a
+pairwise alignment after a divergence time t. Pairwise
+sequence comparison methods score aligned residue pairs
+with these joint probabilities either explicitly or implicitly
+[17]. In explicit generative pair probabilistic models, like
+the pair-HMMs and pair-SCFG in QRNA, the P(i, j|t) terms
+are referred to as pair emission probabilities.
+
+The evolution of joint probabilities is usually obtained by
+modeling the corresponding conditional probabilities
+P(j|i, t)as a substitution process in which residue i has
+been substituted by residue j over time t. Probabilistic
+models for nucleotide substitutions [18,19,42-44] assume
+
+Page 2 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+that nucleotide substitution follows a model of evolution
+that depends on an instantaneous rate matrix,
+Qt = etR,
+
+(1)
+
+where t is the divergence time, R is the instantaneous rate
+matrix, and Qt is the substitution matrix of conditional
+probabilities, that is Qt(ij) ≡ P(j|i, t). This is a reasonable
+model used, for instance, to describe nucleotide substitutions in the Jukes-Cantor [42] or Kimura [43] models, or
+the more general REV model [44]; this is also the evolutionary model used for amino acid substitutions
+[18,19,21,45,46], codon to codon substitutions [20,47],
+and RNA basepair to basepair substitutions [14,22,23].
+Throughout this paper, I will use the words "divergence
+time", "divergence", or "time" equivalently to describe the
+amount of dissimilarity between biological sequences
+measured as the number of mutations and gaps introduced in the alignment of the sequences. I will never refer
+to "time" as representing an actual number of years of
+divergence, since this number cannot be determined
+intrinsically from sequence data.
+Thus, given a rate matrix R, Qt (and therefore the desired
+joint emission probabilities) can be inferred for any
+desired time using the Taylor expansion for the matrix
+exponential,
+
+Qt =
+
+example, a similar assumption was taken to construct the
+BLOSUM matrices [51], which were obtained as joint
+probabilities at discrete point estimates from clusters of
+aligned sequences.
+In this third approach the parameters at the generating
+time t* will be used to construct a rate matrix for the process. This approach is motivated by the kind of situation in
+which we find ourselves with probabilistic methods based
+on homology such as QRNA: a model has been trained in
+one kind of data, and the resulting probabilities represent
+some effective but fixed divergence time, and we wish to
+extend that model to a time-dependent parameterization.
+For residue substitution processes, the rate matrix R and
+Q*, defined as the substitution matrix at the generating
+time t* [Q* ≡ Qt*], convey exactly the same information.
+More explicitly, assuming the evolutionary model given in
+equation (1) we can calculate the rate matrix of the process as a function of Q* as
+
+R=
+
+1
+log(Q*), 0 < t* < ∞.
+t*
+
+(3)
+
+Kishino et al [52] introduced the idea of calculating the
+rate matrix starting from a given substitution matrix using
+equation (3) and an eigenvalue decomposition of Q*. It is
+worth noting that the matrix equation for the rate R can
+be expressed as a Taylor expansion of the form
+
+n=∞
+
+(tR)n
+n =0 n!
+
+∑
+
+= I + tR +
+
+2
+
+(2)
+
+R=
+
+3
+
+t
+t
+RR + RRR + ...
+2!
+3!
+
+This Taylor series converges in all cases.
+There are several ways in which the rate matrix R can be
+determined. One approach is to use analytically inferred
+rate matrices that depend on a small number of external
+parameters [42-44,48]. For instance, the HKY model for
+nucleotide substitutions [48] depends on six parameters:
+the four stationary nucleotide frequencies, a rate of transitions, and a rate of transversions, which have to be provided externally. Another type of approach uses
+maximum likelihood methods [21,49,50] in order to estimate a rate matrix numerically from a training set of
+sequence alignments.
+A third approach arises naturally in cases where suitable
+joint probabilities have already been estimated for a pair
+model, and we wish to make that model conditional on
+evolutionary divergence time. This approach starts from
+the assumption that our point estimate represents
+sequences at a particular arbitrary divergence time t*. For
+
+=
+
+1 n=∞ (−1) n+1
+(Q* − I)n
+∑
+t* n=1 n
+
+(4)
+
+1
+1
+
+2 1
+3
+ (Q* − I) − (Q* − I) + (Q* − I) − ...  ,
+t* 
+2
+3
+
+
+which allows for a direct numerical calculation of the rate
+matrix. The convergence of this series requires only that
+for every (real or complex) eigenvalue λ of matrix Q*, then
+|λ - 1| < 1. In addition, for any valid substitution matrix
+the eigenvalues have to be real and |λ| ≤ 1 (see Appendix
+A). Under these two conditions, the above Taylor series
+converges so long as the eigenvalues of Q* are positive.
+Therefore the three properties required of Q* in order to be
+able to obtain a rate matrix using the Taylor expansion in
+equation (4) are that its eigenvalues are all smaller than
+one (but one that is strictly one), real, and positive. Complex or negative eigenvalues would correspond to oscillatory behaviors, which do not seem to reflect the biology.
+All the substitution processes I have tested so far for nucleotides, amino acids, and RNA basepairs correspond to real
+and positive eigenvalues for which the above method is
+applicable.
+It is relevant to compare instantaneous rate matrix
+approaches to the approach used in the PAM amino-acid
+
+Page 3 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+R=
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+A
+−
+.142
+.026
+.061
+.045
+.113
+.037
+.044
+.059
+.072
+.069
+.008
+.065
+.068
+.085
+.233
+.113
+.161
+.020
+.037
+
+C
+.029
+−
+.006
+.000
+.010
+.004
+.006
+.015
+.004
+.015
+.019
+.004
+.005
+.005
+.005
+.015
+.015
+.014
+.009
+.009
+
+D
+.019
+.021
+−
+.189
+.022
+.042
+.039
+.024
+.030
+.004
+.012
+.115
+.041
+.065
+.015
+.074
+.043
+.012
+.008
+.012
+
+E
+.056
+.001
+.233
+−
+.021
+.023
+.093
+.012
+.150
+.014
+.020
+.069
+.046
+.307
+.086
+.087
+.046
+.043
+.018
+.029
+
+F
+.022
+.024
+.014
+.011
+−
+.014
+.031
+.074
+.010
+.060
+.084
+.010
+.005
+.006
+.013
+.024
+.021
+.022
+.077
+.241
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+G
+.106
+.020
+.052
+.023
+.027
+−
+.032
+.006
+.027
+.008
+.022
+.088
+.031
+.030
+.036
+.094
+.024
+.022
+.037
+.019
+
+H
+.011
+.008
+.015
+.030
+.019
+.010
+−
+.007
+.014
+.005
+.014
+.053
+.011
+.035
+.038
+.018
+.009
+.005
+.008
+.088
+
+I
+.032
+.056
+.024
+.009
+.111
+.005
+.018
+−
+.002
+.282
+.135
+.018
+.012
+−.002
+.020
+.036
+.030
+.595
+.009
+.040
+
+K
+.049
+.017
+.034
+.136
+.017
+.024
+.039
+.002
+−
+.033
+.070
+.076
+.048
+.153
+.282
+.092
+.043
+.040
+.017
+.030
+
+L
+.088
+.089
+.006
+.018
+.150
+.011
+.022
+.465
+.049
+−
+.566
+.022
+.024
+.048
+.058
+.036
+.081
+.161
+.043
+.071
+
+M
+.020
+.028
+.005
+.006
+.051
+.007
+.014
+.054
+.025
+.138
+−
+.012
+.014
+.070
+.032
+.030
+.019
+.083
+.026
+.018
+
+N
+.005
+.013
+.100
+.049
+.013
+.061
+.114
+.016
+.059
+.012
+.026
+−
+.017
+.066
+.075
+.121
+.067
+.009
+.004
+.021
+
+P
+.045
+.016
+.038
+.035
+.008
+.022
+.025
+.011
+.040
+.013
+.033
+.018
+−
+.043
+.023
+.039
+.041
+.029
+.008
+.015
+
+Q
+.037
+.012
+.048
+.181
+.006
+.017
+.063
+− .002
+.100
+.021
+.127
+.055
+.034
+−
+.127
+.066
+.032
+.025
+.024
+.047
+
+R
+.055
+.018
+.013
+.061
+.017
+.025
+.084
+.017
+.222
+.031
+.070
+.075
+.022
+.153
+−
+.032
+.049
+.002
+.016
+.026
+
+S
+.238
+.077
+.102
+.096
+.049
+.102
+.060
+.050
+.113
+.030
+.101
+.191
+.057
+.124
+.050
+−
+.212
+.006
+.018
+.034
+
+T
+.089
+.058
+.045
+.040
+.033
+.020
+.023
+.032
+.041
+.053
+.050
+.082
+.047
+.046
+.059
+.164
+−
+.116
+.033
+.027
+
+V
+.138
+.060
+.014
+.040
+.039
+.020
+.014
+.692
+.041
+.113
+.239
+.012
+.037
+.040
+.003
+.005
+.126
+−
+.014
+.063
+
+W
+.003
+.008
+.002
+.003
+.027
+.007
+.005
+.002
+.003
+.006
+.015
+.001
+.002
+.008
+.004
+.003
+.007
+.003
+−
+.037
+
+Y
+.016
+.019
+.007
+.013
+.209
+.009
+.125
+.023
+.015
+.025
+.026
+.014
+.009
+.037
+.017
+.014
+.014
+.031
+.094
+−
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 1
+Rate matrix generated from BLOSUM62
+Rate matrix generated from BLOSUM62. Rate matrix obtained from the amino-acid substitution matrix BLOSUM62,
+rescaled to have an average number of one substitution per amino acid. Notice in bold the two off diagonal negative entries.
+
+substitution matrices [53]. The PAM matrices were not
+generated by calculating a rate matrix, but by estimating
+from a collection of highly similar sequences the substituPAM
+tion matrix for the time of one substitution per site Q*
+≡ Qt = 0.01, and then calculating Qt at any other (integer t)
+time by multiplication. This is a discrete approximation
+that converges to the same answer given by the rate
+method for very small time units. PAM matrices have been
+criticized for not being able to capture the substitutions
+that are observed for more dissimilar sequences. BLOSUM
+matrices empirically outperform PAM in sequence
+homology searches, presumably because sequences at
+larger divergence times were used to calculate the BLOSUM matrices. However, the BLOSUM method is not a
+time dependent continuous model but a very coarsegrained discretization. There are ways of combining the
+best of both approaches (more divergent sequence for
+training and a continuous-time model) to generate rate
+matrices, for instance by using the resolvent method [54],
+or using maximum likelihood methods as in the WAG
+matrices [21]. However, it is also possible to take a discrete BLOSUM matrix, for instance BLOSUM62, and convert it to an underlying rate matrix. The BLOSUM62generated rate matrix obtained using equation (4) is
+shown in Figure 1.
+A rate matrix can also be derived from the PAM data
+PAM
+by various methods. One exact method is to do an
+Q*
+eigenvalue decomposition as presented in [52]. Recently,
+
+other methods have been proposed to calculate a rate
+matrix from the Dayhoff data [55]. These methods still
+PAM
+assume that R ≈ ( Q*
+- I) which corresponds to taking
+only the first term in the Taylor series for the logarithm in
+equation (4). This assumption is good only for very
+closely related sequences. Using the Taylor series allows
+one to estimate, using the same input data and avoiding
+the calculation of eigenvalues, the rate matrix to any
+desired level of precision, independent of the degree of
+similarity in the training set.
+
+Notice that the rate matrix obtained using BLOSUM62
+(Figure 1) has two off-diagonal negative entries (and if we
+use more divergent BLOSUM matrices we have more negative off-diagonals). Off-diagonal entries of the rate
+matrix have to be positive so that I + δtR can be interpreted
+as a substitution matrix for very small times δt. This problem is not unique to sequence data. The construction of
+rate matrices for a Markov process from empirical data
+using a generating time is also used in mathematical modeling of financial processes such as credit risk modeling
+[56,57]. In the world of mathematical finances the problem is referred to as the regularization problem. I will use
+one of following regularization algorithms presented in
+[57]. The QOG algorithm (quasi-optimization of the generator) regularizes the rate matrix. The QOM algorithm
+(quasi-optimization of the root matrix) leaves the rate
+matrix unchanged and regularizes the conditional matrix
+at a given time if any negative probability appears. Using
+Page 4 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+R=
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+A
+−
+.142
+.026
+.061
+.045
+.113
+.037
+.044
+.059
+.072
+.069
+.008
+.065
+.067
+.085
+.233
+.113
+.161
+.020
+.037
+
+C
+.029
+−
+.006
+.000
+.010
+.004
+.006
+.015
+.004
+.015
+.019
+.004
+.005
+.004
+.005
+.015
+.015
+.014
+.009
+.009
+
+D
+.019
+.021
+−
+.189
+.022
+.042
+.039
+.024
+.030
+.004
+.012
+.115
+.041
+.065
+.015
+.074
+.043
+.012
+.008
+.012
+
+E
+.056
+.001
+.233
+−
+.021
+.023
+.093
+.011
+.150
+.014
+.020
+.069
+.046
+.307
+.086
+.087
+.046
+.043
+.018
+.029
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+F
+.022
+.024
+.014
+.011
+−
+.014
+.031
+.074
+.010
+.060
+.084
+.010
+.005
+.006
+.013
+.024
+.021
+.022
+.077
+.241
+
+G
+.106
+.020
+.052
+.023
+.027
+−
+.032
+.006
+.027
+.008
+.022
+.088
+.031
+.030
+.036
+.094
+.024
+.022
+.037
+.019
+
+H
+.011
+.008
+.015
+.030
+.019
+.010
+−
+.007
+.014
+.005
+.014
+.053
+.011
+.035
+.038
+.018
+.009
+.005
+.008
+.088
+
+I
+.032
+.056
+.024
+.009
+.111
+.005
+.018
+−
+.002
+.282
+.135
+.018
+.012
+.000
+.020
+.036
+.030
+.595
+.009
+.040
+
+K
+.049
+.017
+.034
+.136
+.017
+.024
+.039
+.002
+−
+.033
+.070
+.076
+.048
+.153
+.282
+.092
+.043
+.040
+.017
+.030
+
+L
+.088
+.089
+.006
+.018
+.150
+.011
+.022
+.465
+.049
+−
+.566
+.022
+.024
+.048
+.058
+.036
+.081
+.161
+.043
+.071
+
+M
+.020
+.028
+.005
+.006
+.051
+.007
+.014
+.054
+.025
+.138
+−
+.012
+.014
+.070
+.032
+.030
+.019
+.083
+.026
+.018
+
+N
+.005
+.013
+.100
+.049
+.013
+.061
+.114
+.015
+.059
+.012
+.026
+−
+.017
+.066
+.075
+.121
+.067
+.009
+.004
+.021
+
+P
+.045
+.016
+.038
+.035
+.008
+.022
+.025
+.011
+.040
+.013
+.033
+.018
+−
+.043
+.023
+.039
+.041
+.029
+.008
+.015
+
+Q
+.037
+.012
+.048
+.181
+.006
+.017
+.063
+.000
+.100
+.021
+.127
+.055
+.034
+−
+.127
+.066
+.032
+.025
+.024
+.047
+
+R
+.055
+.018
+.013
+.061
+.017
+.025
+.084
+.017
+.222
+.031
+.070
+.075
+.022
+.153
+−
+.032
+.049
+.002
+.016
+.026
+
+S
+.238
+.077
+.102
+.096
+.049
+.102
+.060
+.049
+.113
+.030
+.101
+.191
+.057
+.124
+.050
+−
+.212
+.006
+.018
+.034
+
+T
+.089
+.058
+.045
+.040
+.033
+.020
+.023
+.032
+.041
+.053
+.050
+.082
+.047
+.046
+.059
+.164
+−
+.116
+.033
+.027
+
+V
+.138
+.060
+.014
+.040
+.039
+.020
+.014
+.692
+.041
+.113
+.239
+.012
+.037
+.040
+.003
+.005
+.126
+−
+.014
+.063
+
+W
+.003
+.008
+.002
+.003
+.027
+.007
+.005
+.002
+.003
+.006
+.015
+.001
+.002
+.007
+.004
+.003
+.007
+.003
+−
+.037
+
+Y
+.016
+.019
+.007
+.013
+.209
+.009
+.125
+.023
+.015
+.025
+.026
+.014
+.009
+.037
+.017
+.014
+.014
+.031
+.094
+−
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 2
+Regularized rate matrix generated from BLOSUM62
+Regularized rate matrix generated from BLOSUM62 Regularized rate matrix generated from BLOSUM62 after the
+QOG algorithm has been applied. The matrix has been rescaled to have an average number of one substitution per amino acid.
+In this simple case in which there was at most one negative off-diagonal entry per row, the regularization process requires the
+negative off-diagonal value to be set to zero (represented in bold in this Figure), and to shift the rest of the elements in that
+row by the corresponding amount so that the sum of all elements is zero. Rows without any off-diagonal negative values
+remain unchanged from the values obtained in Figure 1.
+
+the QOG algorithm we obtain a regularized version of the
+rate matrix using BLOSUM62, which is given in Figure 2.
+
+3. Obtain the permutation
+
+w p = P(w) , such that
+
+wip ≤ wip+1 .
+
+Regularization algorithms
+Here I reproduce the QOG and QOM regularization algorithms. The proofs for these algorithms can be found in
+[57]. The QOG algorithm regularizes each row of a rate
+matrix independently. Given a row in a rate matrix R,
+
+4. Construct Ck = w1 + ∑ i =0
+
+r = (r1,...,rn) ≡ (R(i, 1) ..., R(i, n)),
+
+5. Calculate kmin = mink = 2, ..., n - 1 {k such that Ck ≤ 0}.
+
+(5)
+
+the QOG algorithm solves the problem of finding the vector at the minimal Euclidean distance from r such that the
+sum of all its elements is zero, and all elements but one
+are positive.
+The steps of the QOG algorithm are:
+1. Permute the row vector so that r1 = R(i, i).
+2. Construct the vector w, such that wi = ri - λ, where
+
+λ=
+
+1 n
+∑ ri .
+n i =1
+
+n−k −1 p
+wn−i
+
+p
+
+p
+− (n − k + 1)wk +1 , for
+
+k = 2, ..., n - 1.
+
+6. Construct the vector
+0
+ˆ 
+ri =  p
+1
+n
+p
+w1 + ∑ j =k +1 w p
+j
+ wi − n − k
+min
+min + 1
+
+
+{
+
+}
+
+if 2 ≤ i ≤ kmin
+otherwise
+
+ˆ
+7. The regularized row is given by r ← P-1 ( r ). Finally
+reverse the permutation of step (1).
+The QOM algorithm regularizes each row of a conditional
+matrix independently. Given a row in a conditional
+matrix Qt
+r = (r1,..., rn) ≡ (Qt(i, 1),..., Qt(i, n)),
+
+(6)
+
+Page 5 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+the QOM algorithm solves the problem of finding the vector at the minimal Euclidean distance from r such that the
+sum of all its elements is one, and all elements are
+positive.
+
+amino acid substitutions. These 4 × 4 probabilities can be
+viewed as a particular example of the REV model [44].
+Note that the sum of all elements of P* adds up to one,
+and the matrix is symmetric.
+
+The steps of the QOM algorithm are:
+
+The marginal probabilities defined as pi = ∑j P(i, j|t*) can
+be calculated from the joint probabilities to be,
+
+1. Construct the vector w, such that wi = ri - λ, where
+
+λ=
+
+p = (pa, pc, pg, pt) = (0.2836, 0.2311, 0.2531, 0.2322).
+
+1
+n
+(∑ i =1 ri − 1) .
+n
+
+2. If all wi are non negative, r ← w is the new regularized
+row.
+p
+
+3. Otherwise, obtain the permutation w = P(w) , such
+p
+
+p
+
+that wi ≥ wi +1 .
+4. Construct Ck = ∑ i =1 wi − kwk , for k = 1,..., n.
+k
+
+p
+
+p
+
+(8)
+
+Similarly, the conditional probabilities P(j|i, t*) can be
+calculated from the previous joint and marginal probabilities using the relationship P(i, j|t*) = P(j|i, t*) pi. Using the
+matrix representation Q*(ij) ≡ P(j|i, t*) we have,
+ 0.4401
+
+0.2250
+Q* = 
+ 0.2414
+
+ 0.1968
+
+
+0.1834
+0.3778
+0.1770
+.
+0.2024
+
+0.2154
+0.1939
+0.4295
+0.1658
+
+0.1611 
+
+0.2034 
+.
+0.1521 
+
+0.4350 
+
+
+(9)
+
+Notice how the sum of the elements in each row adds up
+to one. Notice also how Q* is quite different from the
+identity matrix, which means that we have started with a
+quite divergent generating time.
+
+5. Calculate kmax = maxk = 1,..., n {k such that Ck ≤ 1}.
+6. Construct the vector
+
+If we assume a homogeneous Markov substitution process, we can interpret the conditional probabilities Q* as
+the matrix of substitution probabilities at the generating
+time. Thus, we can characterize the underlying evolutionary process by its instantaneous rate of evolution, which
+can be calculated from Q* using equation (4). The resulting rate matrix R (up to an arbitrary scaling factor t*) is
+given by,
+
+1
+kmax
+ p
+w +
+[1 − ∑ j =1 w p ] if 1 ≤ i ≤ kmax
+j
+ˆ 
+ri =  i kmax
+0
+otherwise
+
+ˆ
+7. The regularized row is given by r ← P-1 ( r ).
+A 4 × 4 example starting from joint probabilities at a given
+generating time
+As an review of these techniques, I will use a set of 4 × 4
+single-nucleotide joint probabilities P(i, j|t*) for i, j = {a,
+c, g, t} at a particular generating time t* to construct the
+corresponding rate matrix.
+
+In this example, the joint probabilities at the generating
+time using the matrix notation P*(ij) ≡ P(i, j|t*) are given
+by,
+
+ A
+
+ 0.1248
+P* =  0.0520
+
+6
+ 0.0611
+ 0.0457
+
+
+C
+G
+T 
+
+0.0520 0.0611 0.0457 
+0.0873 0.0448 0.0470  .
+
+0.0448 0.1087 0.0385 
+0.0470 0.0385 0.1010 
+
+
+(7)
+
+These 4 × 4 pair-nucleotide probabilities are taken from
+the program QRNA. They were calculated according to
+[16] by marginalizing codon-codon joint probabilities
+which were constructed from the BLOSUM62 matrix of
+
+ −1.0965 0.3690 0.4575 0.2701 
+
+
+1 0.4528 −1.2750 0.3720 0.4503 
+.
+R= 
+t*  0.5126 0.3396 −1.0876 0.2353 
+
+
+ 0.3298 0.4481 0.2565 −1.0345 
+
+
+
+(10)
+
+This rate matrix has all the good properties: (i)"Normalization": the sum of the elements of each row is zero. (ii)
+"Reversibility": pi Rij = pj Rji. The process is reversible by
+construction because we started with symmetric joint
+probabilities. (iii) "Saturation". The rate matrix converges
+at time infinity to the given marginal probabilities in
+equation (8). We can test saturation by using equation (2)
+and calculating the substitution matrix for a very large
+time. For instance, for t = 10t* we have
+ 0.2836
+
+0.2836
+Q10.0t* = 
+ 0.2836
+
+ 0.2836
+
+
+0.2311
+0.2311
+0.2311
+0.2311
+
+0.2531
+0.2531
+0.2531
+0.2531
+
+0.2322 
+
+0.2322 
+.
+0.2322 
+
+0.2322 
+
+
+(11)
+
+Page 6 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+Saturation (or stationarity) of a Markov process is a necessary consequence of (i) normalization and (ii) reversibility. Appendix A shows a derivation of the previous
+statement which was useful for me (and hopefully for
+some readers) when studying the behavior at t = ∞ of
+more complicated evolutionary models. Therefore, starting from joint probabilities as in this example, we can
+always interpret the marginal probabilities as the stationary probabilities of the evolutionary process.
+In summary, starting with a single set of joint probabilities
+at one particular generating divergence time t*, we calculate the joint probabilities at any other arbitrary time,
+assuming an exponential model of evolution. To that
+effect, given the particular set of joint probabilities (7) we
+have calculated the corresponding rate matrix (10) by Taylor expansion. Thus we can estimate the substitution
+matrix/conditional probabilities at any other arbitrary
+time, simply using equation (2), and reconstruct the joint
+probabilities at any other arbitrary time. For instance, for
+t = 0.3t* we obtain,
+
+P0.3t*
+
+ 0.2089
+
+0.0249
+=
+ 0.0303
+
+ 0.0195
+
+
+0.0249
+0.1615
+0.0208
+0.0239
+
+0.0303
+0.0208
+0.1864
+0.0156
+
+0.0195 
+
+0.0239 
+.
+0.0156 
+
+0.1731 
+
+
+(12)
+
+This method allows us to evolve pair emission probabilities corresponding to different processes (in addition to
+the 4 × 4 nucleotide emissions) for instance 20 × 20
+amino acid-to-amino acid joint emission probabilities, 64
+× 64 codon-to-codon joint emission probabilities, or 16 ×
+16 RNA basepair-to-basepair joint emission probabilities.
+Thus, this method is useful to be applied in combination
+with pair HMMs or pair SCFGs already parameterized at
+one fixed divergence time to make their emission probabilities a time-dependent family.
+The evolution of emission probabilities with indels treated as an extra
+character
+Substitution processes (even if describing multi-nucleotide events such as codon evolution or RNA basepair
+evolution) are not enough to describe the full evolutionary relationship between two biological sequences. We
+also need to consider indels, for which we need to introduce more complicated models of evolution than the one
+described so far.
+
+Indels have traditionally been a problem for phylogenetic
+methods. Programs to construct phylogenetic trees from
+data such as PHYLIP [58], PAUP* [59], and other phylogeny packages [60-64] treat gaps as missing data. The theoretical description of the evolution of gaps in a
+probabilistic fashion reached a landmark with the
+Thorne/Kishino/Felsenstein (TKF) model [30,31]. The
+
+TKF model however is hard to implement in combination
+with a probabilistic model such as an HMM, although an
+active area of research exists in that direction [36,39,40].
+A more direct attack to the problem of introducing phylogeny into existing probabilistic models originated with
+the concept of tree HMMs [34,35]. The tree HMM method
+models the evolution of the parsing of different sequences
+through an HMM. This approach is more related with the
+evolution of transition probabilities, and I will discuss it
+later on in this paper.
+Here I am going to describe a method for the evolution of
+indels under the assumption that they behave like an
+additional residue added to a N × N residue substitution
+matrix. This is a simplification of the problem because it
+forces indels to have linear penalties (that is, the cost of
+opening an indel in an alignment or the cost of extending
+it with one more indel character is the same) and to
+behave independently of each other (that is, successive
+indel characters in one sequence will be treated as independent events, rather than as a single indel of n residues
+long). Despite its apparent simplicity, this approach poses
+interesting problems in parameterizing evolution.
+Let us review some of the implications of insertion and
+deletion processes. The treatment that pair models give to
+pairwise alignments can be interpreted (if we assume
+reversibility, as is the case here) with all generality as if
+one of the sequences is the ancestor of the other one. For
+any two aligned residues we assume that they can be
+related by a substitution process. For a residue aligned to
+a gap we assume that either a residue in the ancestor was
+deleted in the descendent sequence, or that a residue not
+present in the ancestor appeared in the descendent
+sequence.
+An stochastic insertion–deletion process also involves
+insertions followed by subsequent deletions. These events
+leave no trace in pairwise alignments because alignments
+usually do not retain gaps aligned to gaps. However, when
+we are treating indels as an extra character, we have to
+account for such events.
+If we were given ideal alignments with all their gap-to-gap
+aligned columns we could estimate from data the (N + 1)
+× (N + 1) extended joint probabilities at a generating time,
+ε
+P* . Because that is not the case, we need to make some
+ε
+inference about P* . Let us represent with ∆, such that 0 ≤
+∆ ≤ 1/2, the expected frequency of observed gaps with
+respect to the total number of residues in pairwise alignments at a particular time t*. The parameter ∆, can be estimated from data, or it could be estimated according to the
+TKF model [30] as
+
+Page 7 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+∆=
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+(λ − µ )t*
+
+λ 1− e
+,
+2 µ − λ e(λ − µ )t*
+
+(13)
+
+if we knew the values for the rate of insertions λ and the
+rate of deletions µ, such that 0 <λ <µ.
+Let us represent with ∆' the expected frequency of missing
+gap-to-gap aligned columns in a pairwise alignment at a
+particular time t*. One can estimate ∆' as the expected
+length of insertions that were later deleted without leaving
+any trace in current sequences. The probability of a stretch
+of l gap-to-gap characters is given by the geometric distribution density ρ(l) = (1 - ∆2) ∆2l. Therefore ∆' is given by,
+∞
+
+∆2
+
+l =1
+
+1 − ∆2
+
+∆ ′ = ∑ l ρ(l) =
+
+.
+
+(14)
+
+Using these two parameters and the joint probabilities in
+ÓÕ
+the absence of gaps at the generating time P*( ˆˆ ) we can
+construct the set of (N + 1) × (N + 1) extended joint probabilities at t* as
+
+ P ( ÓÕ) | pÓ ∆ 
+Ω *
+(15)
+,
+ p Õ ∆ | ∆′ 
+
+
+where we have assumed independence for the joint probability of a residue and a gap. The normalization factor Ω
+= 1/(1 + 2∆ + ∆') represents the fact that the observed ∆ is
+different from the value we would have obtained had we
+known the complete alignment.
+Another implication of insertion and deletions appears in
+the behavior of the marginal probabilities of single residues and indels. At t = 0 when sequences have not yet
+diverged, the marginal probability of finding a gap in an
+alignment should be zero. In the limit t = ∞, the pairwise
+alignment of two finite-length sequences is going to be
+dominated by gap-to-gap alignments, which implies that
+as the divergence time increases the marginal probability
+of a residue becomes negligible, while the marginal probability of a gap becomes one in the limit t = ∞. Our evolutionary model has to be able to accommodate such
+saturation frequencies.
+A step-by-step description of the algorithm for the evolution of gaps
+as an extra residue
+I will start by describing the steps to implement the
+method before explaining how to derive those steps. This
+method can be applied starting from two different situations: starting from a N × N set of joint probabilities at a
+generating time that need to be extended to allow indel
+characters and evolved with time; or starting from a given
+N × N rate matrix that needs to be extended to allow indel
+characters.
+
+Suppose we start with a N × N set of joint probabilities P*
+at a generating time t*, where p stands for the marginal
+probabilities and Q* represents the set of conditional
+probabilities associated with P*.
+1. Extend the joint probabilities at the generating time t*
+ε
+to a (N + 1) × (N + 1) matrix of joint probabilities P* of
+the form,
+
+ P ( ÓÕ) | pÓ ∆ 
+ε
+(16)
+P* = Ω  *
+,
+ p Õ ∆ | ∆′ 
+
+
+where ∆ is a parameter which represents the expected frequency of gaps with respect to the total number of residues in an pairwise alignment at t*, and which satisfies the
+condition 0 ≤ ∆ ≤ 1/2. The parameter ∆' is given in terms
+of ∆ as ∆ ′ =
+
+∆2
+
+, and the normalization constant is
+1 − ∆2
+Ó
+given by Ω = 1/(1 + 2∆ + ∆'). The indices with hats ( ˆ )
+stand for the N residues, and exclude the gap character,
+which I represent with the symbol -.
+The (N + 1) × (N + 1) extended conditional probabilities
+ε
+at the generating time Q* are given by,
+
+
+∆ 
+
+
+1+ ∆ 
+
+ Q*( ÓÕ) /(1 + ∆)
+
+ε
+Q* = 
+∆ .
+
+
+1+ ∆ 
+
+
+∆
+∆′ 
+ pÕ
+
+1 + ∆′
+∆ + ∆′ 
+
+
+(17)
+
+2. Construct the (N + 1) × (N + 1) extended rate matrix Rε
+as
+Rε =
+
+1
+1 n=∞ (−1) n+1 −1 ε
+− ε
+log(Q0 1Q* ) =
+(Q0 Q* − I)n ,
+∑
+t*
+t* n=1 n
+
+(18)
+
+where
+
+
+∆ 
+
+
+1+ ∆ 
+
+ Q*( ÓÕ) /(1 + ∆)
+
+−
+ε
+.
+Q0 1Q* = 
+∆ 
+
+
+1+ ∆ 
+
+ 0 ...
+
+0 1
+
+
+
+(19)
+
+ε
+3. Calculate the exponential of the rate matrix etR using
+the Taylor expansion,
+
+Page 8 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+ε
+
+etR =
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+(tRε )n
+.
+n =0 n!
+
+n=∞
+
+∑
+
+ε
+ε
+Ptε (ij) = pt (i)Qt (ij).
+
+(20)
+
+The expression for Λt in equation (24) guarantees reversi-
+
+4. Construct the extended matrix of conditional probabilε
+ities at arbitrary time Qt as
+ε
+
+ε
+Qt = Q0etR ,
+
+
+0 
+
+
+ δ ( ÒÔ)
+,
+Q0 = 
+0 
+
+
+ p Ô (1 − q0 ) q0 
+
+
+
+1. Construct the (N + 1) × (N + 1) extended rate matrix Rε
+as
+
+(22)
+
+where pˆ are the original marginal probabilities of P*, and
+Ó
+
+∆′ − ∆2
+. The
+∆′ + ∆
+function δ(ij) is a Kronecker delta which takes value one
+for i = j and zero otherwise. The case q0 = 1 corresponds to
+the extreme case in which the N + 1 gap residue does not
+evolve.
+
+the probability 0 <q0 ≤ 1 is given by q0 =
+
+ε
+5. Construct the extended marginal probabilities pt as
+
+ p (1 − Λt ) if i = Ò ,
+ε
+pt (i) =  Ò
+(23)
+if i = −,
+ Λt
+where the probability of a gap at time t is given by,
+
+∑ ˆÓ pˆÓ Qtε (ˆÓ −)
+
+∑ ˆÓ pˆÓ Qtε (ˆÓ −) + 1 − Qtε (− −)
+
+bility, that is, that the extended Ptε constructed according
+to the above expression are symmetric.
+For the other starting situation, in which we have a N × N
+rate marix R, the procedure to generate a (N + 1) × (N + 1)
+quasi-stationary reversible evolutionary model is the
+following:
+
+(21)
+
+where the matrix Q0 is given by
+
+Λt =
+
+(25)
+
+.
+
+(24)
+
+
+β
+
+R( ÓÕ) − βδ ( ÓÕ)
+Rε = 
+
+β
+
+ 0 ...
+0 0
+
+
+
+
+,
+
+
+
+
+
+(26)
+
+where we have extended the N × N rate matrix R with the
+parameter β > 0.
+The instantaneous rate is given by,
+
+
+β
+
+
+R(Ò Ô) − βδ (Ò Ô)
+
+.
+Q0 R = 
+
+β
+
+
+ − β (1 − q0 )p1 ... − β (1 − q0 )pN β (1 − q0 ) 
+
+
+ε
+
+(27)
+
+Thus β is the instantaneous rate of deletion of a character,
+Ó
+while -β(1 - q0) pˆ is the rate of insertion of character ˆ .
+Ó
+(More complicated models in which the rate of deletion is
+different for different characters are also possible.) Notice
+that q0 = 1 corresponds to the case in which the rate of
+insertions is zero.
+
+I call this process "quasi-stationary" because the backε
+Ó
+ground frequencies pt ( ˆ ) at any finite time are always
+proportional to the original N-dimensional background
+
+frequencies pˆ . This result is a concequence of the fact that
+Ó
+the first N elements of the last row of Q0 are proportional
+to the N stationary frequencies pˆ . On the other hand,
+Ó
+while remaining "quasi-stationary" the background frequencies evolve from ( pˆ , 0) at time zero towards "all
+Ó
+gaps" at time infinity, i.e. limt → ∞ Λt = 1. This behaviour at
+time infinity is the consequence of the particular value of
+q0 selected in the previous step.
+6. Finally, construct the evolved (N + 1) × (N + 1) joint
+probabilities at arbitrary time Ptε as
+
+ε
+2. Find etR analytically, if an analytic expression for Rε is
+ε
+
+given by solving the differential equation d ( etR ) / dt = Rε
+ε
+
+etR , or numerically, proceeding as in step (3) of the previous procedure.
+3. Proceed as in steps (4)-(6) of the previous procedure.
+A 5 × 5 example starting from joint probabilities at a given
+generating time
+We start with the generating joint probabilities P* in the 4
+× 4 example in equation (7), which we want to extend to
+a 5 × 5 matrix by adding a gap character. For this example,
+I have selected the arbitrary value for the gap parameter ∆
+= 0.18.
+Page 9 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+The 4 × 4 joint probabilities in equation (7) augmented to
+ε
+a 5 × 5 matrix P* using the gap parameter ∆ = 0.18 (which
+
+implies that ∆' = ∆2/(1 - ∆2) = 0.0335) is given by,
+ A
+
+ 0.0896
+ 0.0373
+ε
+P* = 
+ 0.0438
+ 0.0328
+
+ 0.0366
+
+
+C
+0.0373
+0.0626
+0.0321
+0.0337
+
+G
+
+T
+
+0.0438 0.0328
+0.0321 0.0337
+.
+0.0780 0.0276
+0.0276 0.0725
+7
+
+0.0299 0.0327 0.0300
+
+ε
+dQt
+dt
+
+−
+
+
+
+0.0366 
+0.0299 
+.
+0.0327 
+0.0300 
+
+0.0240 
+
+
+(28)
+
+ε
+The conditional probabilities Q* (ij) = Pε (j|i, t*) are given
+by,
+ 0.3729
+
+ 0.1907
+ε
+Q* =  0.2046
+
+ 0.1668
+ 0.2391
+
+
+0.1554
+0.3201
+0.1500
+0.1715
+0.1949
+
+0.1826
+0.1643
+0.3640
+0.1405
+0.2134
+
+0.1366
+0.1724
+0.1289
+0.3686
+0.1958
+
+0.1525 
+
+0.1525 
+0.1525  .
+
+0.1525 
+0.1568 
+
+
+matrix; instead, the instantaneous rate of evolution is
+given by,
+
+(29)
+
+= Q0 Rε .
+
+(33)
+
+t =0
+
+In this example, the instantaneous rate of evolution takes
+the form,
+ −1.2625 0.3692 0.4578 0.2700
+
+ 0.4531 −1.4415 0.3721 0.4508
+Q0 Rε =  0.5130 0.3398 −1.2535 0.2352
+
+ 0.3298 0.4486 0.2564 −1.2003
+ −0.0467 −0.0381 −0.0417 −0.0382
+
+
+0.1655 
+
+0.1655 
+0.1655  .
+
+0.1655 
+0.1647 
+
+
+(34)
+
+One should not be concerned either by having some negative off diagonal components. For small times δt, the
+conditional matrix is given by,
+ε
+
+ε
+Qδ t = Q0eδ tR ≈ Q0 + δ t(Q0 Rε ).
+
+(35)
+
+The extended marginal probabilities at the particular time
+instance t* are given by,
+
+Therefore, in order to have a proper matrix of conditional
+probabilities for sufficiently small δt, it is necessary to satisfy the following condition for each pair of indices i, j,
+
+ε
+pt = (pa, pc, pg, pt, p-) = (0.2402, 0.1957, 0.2143, 0.1966,
+
+if Q0(ij) = 0 then (Q0Rε)(ij) > 0.
+
+*
+
+0.1532),
+
+(30)
+
+which are quasi-stationary with respect to the 4 × 4 stationary probabilities p = (0.2836, 0.2311, 0.2532, 0.2322)
+we started with in equation (8).
+The matrix of conditional probabilities at time zero using
+expression (22) is given by,
+0
+0
+0
+0 
+ 1
+
+
+0
+1
+0
+0
+0 
+
+ 0
+0
+1
+0
+0 
+Q0 = 
+.
+0
+0
+1
+0 
+ 0
+
+
+
+ 0.2822 0.2299 0.2518 0.2310 0.0051 
+
+
+
+
+ −1.2625 0.3692 0.4578 0.2700
+
+ 0.4531 −1.4415 0.3721 0.4508
+ε
+R =  0.5130 0.3398 −1.2535 0.2352
+
+1
+ 0.3298 0.4486 0.2564 −1.2003
+
+0
+0
+0
+0
+
+
+0.1655 
+
+0.1655 
+0.1655  .
+
+0.1655 
+0 
+
+
+In this case, the off-diagonal components of the last row
+of Q0 are non-zero, which allows us to have negative offdiagonal elements for that row in the instantaneous rate
+matrix Q0Rε.
+With the 5 × 5 rate matrix in hand, we can apply steps (3)
+and (4) to obtain the conditional probabilities at any arbiε
+trary time Qt . For instance for t = 0.3t* we obtain the following evolved conditional probabilities:
+
+(31)
+ε
+Q0.3t
+
+*
+
+The rate matrix for this example, calculated using the Taylor expansion described in equation (18) takes the value,
+
+(32)
+
+One should not be concerned to see a whole row of zeros
+for this rate matrix. For this generalized model the instantaneous rate of evolution is not directly given by the rate
+
+(36)
+
+ 0.7011
+
+ 0.1023
+=  0.1139
+
+ 0.0799
+ 0.2685
+
+
+0.0834
+0.6651
+0.0781
+0.0981
+0.2188
+
+0.1017
+0.0856
+0.7007
+0.0641
+0.2396
+
+0.0654
+0.0985
+0.0588
+0.7095
+0.2198
+
+0.0484 
+
+0.0484 
+0.0484  .
+
+0.0484 
+0.0533 
+
+
+(37)
+
+The quasi-stationary marginal probabilities are constructed using the result Λ0.3t* = 0.0487, and the 4 × 4 stationary probabilities p = (0.2836, 0.2311, 0.2532,
+0.2322), following step (5) of the algorithm as,
+ε
+p0.3t = (0.2698, 0.2199, 0.2408, 0.2209, 0.0487).
+*
+
+(38)
+
+Finally, using equation (25), for t = 0.3t*, we obtain the
+following evolved joint probabilities
+
+Page 10 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+and the solutions are,
+ε
+P0.3t
+
+*
+
+ 0.1891
+
+ 0.0225
+=  0.0274
+
+ 0.0176
+ 0.0131
+
+
+0.0225 0.0274 0.0176 0.0131 
+
+0.1462 0.0188 0.0217 0.0106 
+0.0188 0.1687 0.0142 0.0117  .
+
+0.0217 0.0142 0.1567 0.0107 
+0.0106 0.0117 0.0107 0.0026 
+
+
+Notice that this matrix is symmetric, which is the result of
+having imposed reversibility for any arbitrary divergence
+time.
+We can also see by calculating the conditional probabilities at large divergence times how these probabilities
+evolve towards their saturation values given by (0, 0, 0, 0,
+1). For instance, for t = 30t* we have,
+
+ε
+Q30t
+
+*
+
+ 0.0020
+
+ 0.0020
+=  0.0020
+
+ 0.0020
+ 0.0019
+
+
+0.0016
+0.0016
+0.0016
+0.0016
+0.0016
+
+0.0018
+0.0018
+0.0018
+0.0018
+0.0017
+
+0.0016
+0.0016
+0.0016
+0.0016
+0.0016
+
+0.9930 
+
+0.9930 
+0.9930  .
+
+0.9930 
+0.9933 
+
+
+(40)
+
+An example starting from a rate matrix: The Jukes-Cantor model
+extended to gaps
+As an example of a situation in which we start with a rate
+matrix, let us consider the generalization of the Jukes-Cantor model [42] to a 5 × 5 evolutionary model with a gap
+character. The original Jukes-Cantor model assumes that
+all nucleotides mutate at the same rate α > 0 which is represented by the rate matrix
+
+ −3α
+
+α
+R=
+ α
+
+ α
+
+
+α
+−3α
+α
+α
+
+α
+α
+−3α
+α
+
+α 
+
+α 
+.
+α 
+
+−3α 
+
+
+(41)
+
+rt =
+
+1 3 −4α t
++ e
+,
+4 4
+
+(45)
+
+st =
+
+(39)
+
+1 1 −4α t
+− e
+,
+4 4
+
+(46)
+
+By taking the limit t = ∞ in the previous two equations,
+one can see that the saturation frequencies of the JukesCantor model are pi = 0.25 for i = a, c, g, t.
+The 5 × 5 extended Jukes-Cantor rate matrix Rε is constructed by adding a rate of mutation to a gap represented
+by the quantity β ≥ 0 which in principle we will assume is
+different from the rate of substitutions α,
+α
+α
+α
+ −(3α + β )
+
+α
+−(3α + β )
+α
+α
+
+Rε = 
+α
+α
+−(3α + β )
+α
+
+α
+α
+α
+−(3α + β )
+
+
+0
+0
+0
+0
+
+
+β
+
+β
+β .
+
+β
+0
+
+
+(47)
+
+We also introduce the matrix at time zero Q0 which
+depends on the probability parameter 1 ≥ q0 > 0,
+1
+0
+0
+0
+0
+
+
+0
+1
+0
+0
+0
+
+0
+0
+1
+0
+0
+Q0 = 
+
+0
+0
+0
+1
+0
+
+ (1 − q )/ 4 (1 − q )/ 4 (1 − q )/ 4 (1 − q )/ 4 q
+0
+0
+0
+0
+0
+
+
+
+
+
+,
+
+
+
+
+
+(48)
+
+where the particular case q0 = 1 is only allowed if simultaneously β = 0, and corresponds to a trivial extension of the
+original Jukes-Cantor model in which the gap character
+does not evolve.
+
+In this simple case the conditional matrix Qt = etR can be
+found analytically by solving the matrix differential equa-
+
+ε
+The conditional matrix at arbitrary time is given by Qt =
+
+tion Qt = RQt . Because of the symmetries of the problem
+we can write
+
+Q0 etR . The symmetries of the problem in this case allow
+
+ rt
+
+st
+Qt = 
+ st
+
+s
+ t
+
+st
+
+st
+
+rt
+st
+st
+
+st
+rt
+st
+
+st 
+
+st 
+,
+st 
+
+rt 
+
+
+(42)
+
+with the condition rt + 3st = 1. We then obtain the following differential equations
+
+rt = −3α rt + 3α st ,
+st = −α st + α rt ,
+
+(43)
+
+ε
+
+ε
+us to parameterize Qt as
+
+ rt
+
+ st
+ε
+Qt =  st
+
+ st
+ξ
+ t
+
+st
+
+st
+
+st
+
+rt
+st
+st
+
+st
+rt
+st
+
+st
+st
+rt
+
+ξt
+
+ξt
+
+ξt
+
+γt
+γt
+γt
+γt
+σt
+
+
+
+
+,
+
+
+
+
+
+(49)
+
+with the conditions rt + 3st + γt = 1 and 4ξt + σt = 1.
+ε
+Introducing the matrix Mt ≡ etR , we can parameterize
+
+(44)
+Page 11 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+ rt
+
+ st
+Mt =  st
+
+ st
+0
+
+
+st
+
+st
+
+rt
+st
+st
+
+st
+rt
+st
+
+0
+
+0
+
+γt
+st γ t
+st γ t
+rt γ t
+0 1
+st
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+
+
+
+,
+
+
+
+
+
+(50)
+
+pt (i) =
+
+1
+(1 − q0 )(1 − γ t ),
+4
+
+σt = (1 - q0) γt + q0.
+
+1
+(1 − Λt ),
+4
+
+pt (-) = Λt.
+
+which implies that
+
+ξt =
+
+probabilities are given by (0, 0, 0, 0, 1). At any other finite
+time, the background frequencies of the model are quasistationary with respect to the background frequencies of
+the original Jukes-Cantor model, and are given by
+
+(51)
+
+Mt = Rε Mt, which translates into the differential
+equations,
+rt = −(3α + β )rt + 3α st ,
+
+(53)
+
+st = −(α + β )st + α rt ,
+
+(54)
+
+γ t = β (1 − γ t ).
+
+(55)
+
+Which are satisfied by
+
+rt =
+
+1 − β t 3 −(4α + β )t
+e
++ e
+,
+4
+4
+
+(56)
+
+st =
+
+1 − β t 1 −(4α + β )t
+e
+− e
+,
+4
+4
+
+(62)
+
+T
+T
+Imposing the reversibility condition pt Qt = pt in particular we obtain (1 - Λt)γt + Λtσt = Λt which implies,
+
+(52)
+
+The differential equation to calculate Mt takes the form
+
+(61)
+
+Λt =
+
+1 − e−β t
+1 − q0e − β t
+
+.
+
+(63)
+
+Therefore q0 controls how fast the background frequencies
+approach the saturation probabilities (0, 0, 0, 0, 1)
+through the factor Λt. For a given β, the larger q0, the faster
+Λt approaches one. (Note that Λt always approaches one
+as t goes to infinity.)
+At first glance, it looks like q0 could take any value including one in the solution for the extended Jukes-Cantor
+model. q0 = 1 would result in fixed background frequencies of the form (0, 0, 0, 0, 1), which is an undesirable
+result, and the value q0 = 1 would have to be excluded
+when β > 0. In fact, the limit to the ungapped Jukes-Cantor model has to be taken by setting β = 0 first, and then
+q0 = 1. In that way, Λt = 0 for all times, which is the correct
+result for the original Jukes-Cantor model.
+
+(57)
+
+γt = 1 - e-βt.
+
+Derivation of the algorithm for a (N + 1) × (N + 1) quasi-stationary
+and reversible evolutionary process
+Unlike the ungapped N × N case in which the marginal
+probabilities are time independent, in the presence of
+gaps the marginal probabilities have to evolve with time.
+In fact, as I discussed earlier, the marginal probability of a
+
+(58)
+
+And in addition we have
+
+ξt =
+
+1
+(1 − q0 )e − β t ,
+4
+
+σt = 1 - (1 - q0) e-βt.
+
+(59)
+(60)
+
+In the limit case β = 0, the solutions for rt and st reduce to
+those of the original Jukes-Cantor model with the trivial
+additions of σt = 1, ξt = 0 and γt = 0, after setting q0 = 1.
+The extended Jukes-Cantor model depends on three
+parameters: the rate of nucleotide substitution α > 0, the
+rate of nucleotide deletion β ≥ 0, and the parameter 1 ≥ q0
+> 0. What is the meaning of q0 ? q0 controls the saturation
+frequencies (i.e. the background frequencies at time infinity), as well as the background frequencies at any other
+finite time. For β > 0 and 1 >q0 > 0, taking the limit t = ∞
+in equations (56)-(60), one can see that the saturation
+
+ε
+gap pt (-) has to evolve from zero at time zero to one at
+time infinity. As a result of that observation, probabilistic
+evolutionary models with Q0 ≠ I are necessary in the presence of gaps in order to maintain reversibility. The reason
+for this requirement is the following: for an evolutionary
+model of the form etR, reversibility implies that there is
+some p* such that p*Q* = p* [see Appendix B, equation
+(202)]; it follows then that p*R = 0, and therefore p*etR = p*
+for arbitrary time t. Thus, under a reversible model of the
+form Qt = etR, marginal probabilities do not evolve with
+time. On the other hand, if Q0 ≠ I then the condition p*Q*
+= p* does not imply p*R = 0 for the rate matrix R, and therefore it does not impose p* as the marginal probabilities for
+arbitrary t. (See appendix B for more details on this point.)
+
+Page 12 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+Therefore, to model the evolution of gaps we need to generalize the evolutionary model to have the following form
+ε
+
+ε
+Qt = Q0 etR .
+
+The generalized conditional matrix in (64) also saturates
+at very large times, and the saturation probabilities (i.e.
+the marginal probabilities at infinity) are given by those of
+ε
+
+ε
+the rate matrix, that is limt→∞ Qt = limt→∞ etR (see Corollary A.1). Because of the relationship in equation (66)
+
+(64)
+
+The matrix Q0 can be parameterized in following form,
+
+− ε
+between the rate matrix and the matrix Q0 1Q* , the satu-
+
+
+0 
+
+
+δ ( ÓÕ)
+
+,
+Q0 = 
+0 
+
+
+ p Õ (1 − q0 ) q0 
+
+
+
+ε
+ration probabilities p∞ are given by the condition (see
+Appendix B),
+
+(65)
+ε
+ε
+− ε
+− ε
+p∞ (i)(Q0 1Q* )(ij) = p∞ ( j)(Q0 1Q* )( ji).
+
+This matrix depends on one additional parameter q0. The
+
+Ó
+particular dependency Q0(-, ˆ ) ∝ pˆ , is necessary to
+Ó
+obtain quasi-stationary reversibility of the marginal
+probablilities.
+ε
+ε
+The rate matrix is now a function of Q0 and Q* ≡ Qt =t ,
+*
+and takes the form
+
+Rε =
+
+1
+− ε
+log(Q0 1Q* ),
+t*
+
+(66)
+
+− ε
+where the matrix Q0 1Q* has the form,
+
+
+∆ 
+
+
+1+ ∆ 
+
+ Q*( ÓÕ) /(1 + ∆)
+
+−
+ε
+,
+Q0 1Q* = 
+∆ 
+
+
+1+ ∆ 
+
+ p j (1 − η )
+
+η
+
+
+
+(67)
+
+(71)
+
+ξ
+
+GF
+
+ED
+
+??
+
+ ???
+??
+ X 
+Wp
+2
+ss ?? 
+ss  ? 22
+s  y 2
+ss   γ γ 2
+ss
+22
+
+ss
+κ ss
+22τ
+
+s
+22
+ss
+  1− −τ −γ
+s
+δ 
+22
+ss
+
+
+ss
+22
+1−2δ−τ Ö
+ss
+s
+% 
+ss
+@ABC
+@ABC
+GFED
+G1 XY
+G GFED
+E
+B J
+τ
+JJ 1−2κ−ξ
+i
+JJ
+221
+JJ
+1
+
+221
+JJ
+1
+JJ
+
+221 1− −τ −γ
+
+JJ
+δ
+1
+221
+JJ
+τ
+11
+JJ
+
+22
+κ
+JJ
+
+211
+JJ
+JJ 2211  ? 
+JJ 2  ??
+JJ  ?
+$
+7
+? Y ?
+?
+?? 
+?y
+
+where
+
+
+1  ∆
+1 ∆
+.
+η = 1−
++
+
+q0  1 + ∆ q0 ∆ + ∆ ′
+
+
+(68)
+
+Notice that Q0 may be inverted as long as 0 <q0 ≤ 1.
+With respect to the marginal probabilities we have that at
+the generating time t* because of the way the extended
+probabilities P* were constructed we imposed a quasi-stationary behavior of the form,
+ε
+pt = [pi (1 − Λt* ), Λt* ],
+*
+
+(69)
+
+∆ + ∆′
+.
+1 + 2∆ + ∆ ′
+
+T XY → X = TtXY → X , TtX → X = TtY →Y ,
+erties: t
+TtX →Y = TtY → X
+
+, TtB→ X = TtB→Y . These properties guarantee that the model is reversible.
+
+where
+
+Λt* =
+
+Figure 3
+A pair-HMM model
+A pair-HMM model. Description of a pair-HMM model.
+The three states: Emit-a-pair (XY), Emit-X (X), and Emit-Y
+(Y) have four possible transitions each, which we are going to
+make time-dependent functions. This a geometric model, in
+which the expected length is given by 1/τ. In order to generate alignments with the same expected length at all times, we
+will leave the parameter τ (the transition of each of the three
+states into the exit state) unchanged with time. The figure
+shows the transition probabilities having the following prop-
+
+(70)
+
+Page 13 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+Then using equation (71) we can see that the saturation
+probabilities maintain the quasi-stationary property that
+was imposed at the time instance t*, and are given by,
+ε
+p∞ = [pi (1 − Λ ∞ ), Λ ∞ ],
+
+(72)
+
+where
+
+Λ∞ =
+
+∆
+.
+∆ + (1 + ∆)(1 − η)
+
+(73)
+
+As I discussed before, it is reasonable to impose that at
+infinity all we find is gaps, i.e Λ∞ = 1.0, which implies η =
+1 and
+
+q0 =
+
+∆′ − ∆2
+.
+∆′ + ∆
+
+(74)
+
+Notice that because the relationship given in equation
+(14) between ∆' and ∆, then 0 <q0 < 1.
+For an arbitrary time we have the reversibility relationship
+ε
+− ε
+ε
+− ε
+pt (i)(Q0 1Qt )(ij) = pt ( j)(Q0 1Qt )( ji).
+
+(75)
+
+This equation is satisfied by construction in the N × N
+subspace. By inspecting the implications of the above
+equation for the gap index, we obtain an expression of Λt
+(the marginal probability of a gap) at arbitrary time that
+allows us to have quasi-stationary reversible evolution.
+The function Λt is given by,
+
+Λt =
+
+∑ iˆ piˆQtε (iˆ−)
+
+∑ iˆ piˆQtε (iˆ−) + 1 − Qtε (− −)
+
+.
+
+(76)
+
+Evolutionary model for transition probabilities
+The standard way in which comparative probabilistic
+models allow for insertions and deletions is by introducing several additional states with their corresponding transition probabilities. For instance, in a pair-HMM for
+sequence alignment (Figure 3) the presence of gaps
+requires the introduction of two states ("X" and "Y")
+which emit a nucleotide in only one of the two sequences.
+The probabilities associated with transitioning in and out
+of those states control the "gappiness" of the alignment.
+Therefore the evolution of these parameters with time is
+necessary in order to model different degrees of sequence
+divergence.
+
+There has been a continued effort on improving the accuracy of the evolution of emission probabilities (i.e. substitution matrices) such as allowing correlations between the
+rates at different sites [65,66], improvements in the deri-
+
+vation of rate matrices from sequence data [23,67], or estimating multiple nucleotide changes [68]. In comparison,
+the ideas to describe the evolution of transition parameters in probabilistic models are much less standardized
+[34-40].
+The goal of this section is to describe the evolution of transition probabilities. For instance, in the pair-HMM of Figure 3 the transition probabilities from the "XY" state to the
+"X" or "Y" states describe the introduction of gaps in one
+of the two aligned sequences, using an affine penalty.
+These transitions should be zero when the sequences have
+not yet diverged (time zero), but they should be maximal
+at infinite divergence. In between these two extremes, it is
+desirable to model the transition probabilities changing
+with divergence time. These methods are termed "evolutionary" because the transition probabilities will be
+parameterized with time, using functions that are generalizations of the Markov process that probabilistic evolutionary models assume for substitutions. Unlike the TKF
+model [30,31] and other related evolutionary models
+[32,33,41], the approach presented here will not describe
+the actual underlying evolutionary process that may have
+generated one sequence from another.
+The tree-HMM method [34,35,37] is possibly the method
+closest to what I develop here. A tree HMM tries to model
+the phylogenetic relationship between related sequences
+by modeling the parsings of different sequences through
+the model. In a tree HMM it is not the actual transition
+probabilities of the HMM, but the parsing of the different
+sequences through the models that are evolved using rate
+matrices that resemble the diagonal rate matrices introduced in the first of the methods described below. Here I
+want to generate pair or profile probabilistic models that
+when comparing two related sequences are able to accommodate to the degree of divergence observed between the
+two sequences, and I intend to do that in a continuous-intime and probabilistic fashion, using the smallest possible
+number of free parameters. No evolutionary history of
+individual insertion/deletion events will be generated;
+only a posteriori would an evolutionary history be established by comparing sequences (in the case of a profile
+model) or alignments (in the case of pair models) generated by the model at different times.
+I present two methods to evolve transition probabilities.
+One of the methods considers the evolution of a vector of
+transition probabilities. In this method, the value of the
+transition probabilities at time zero and time infinity are
+input parameters, which gives a relatively large number of
+free parameters. In the second, more restrictive, method
+the transitions associated with several states are assumed
+to evolve under the same evolutionary process. This condition constrains some of the free parameters, but does
+
+Page 14 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+not fix them all completely. When the more restrictive
+conditions are used, both algorithms give the same
+results. These two algorithms are applicable to most pair
+and profile probabilistic models, be they HMMs or
+SCFGs, generalized or not. I present an example of the
+evolution of a vector probability vector for a pair HMM,
+and an example of the evolution of a matrix of transition
+substitutions for a profile HMM.
+
+An example: evolution of the transition probabilities of a pair-HMM
+"XY" state
+Consider the transition probability vector associated to
+the "XY" state of the pair-HMM given in Figure 3,
+
+qtXY
+
+Evolution of a vector of transition probabilities
+A step-by-step description of the algorithm
+Let us start by providing the recipe to apply the algorithm:
+
+
+
+
+
+
+
+
+n
+
+such that
+
+∑ Tti = 1, ∀t ,
+
+(77)
+
+i =1
+
+q0(i) <q*(i) <q∞(i) or q0(i) >q*(i) >q∞(i) or q0(i) = q*(i) =
+q∞(i), for all i. (78)
+3. If the three input vectors satisfy the condition,
+
+q*(i) − q∞ (i)
+= −r ,
+q0 (i) − q∞ (i)
+
+(79)
+
+where r > 0 is a real number independent of i, then calculate qt at an arbitrary time t (0 <t <t∞) as
+
+=
+
+T
+q∞
+
+(83)
+
+emission in both sequences ( TtXY → XY ); to a gap in
+
+2. Assume its set of values is known at the three particular
+time instances of t = 0, t = t*, and t = ∞, named q0, q*, and
+q∞. Assume each component i in these probability vectors
+satisfies one of the following three conditions,
+
+qtT
+
+
+
+
+,
+
+
+
+
+
+which describe the four possible transitions from a correlated emission of two nucleotides to another correlated
+
+1. Given a transition probability vector
+
+ Tt1
+
+qt = 
+ n
+T
+ t
+
+ TtXY → XY
+
+ TtXY → X
+=
+ TtXY →Y
+ XY → E
+ T
+ t
+
+ e −rt / t*
+
++ (q0 − q∞ ) 
+
+
+
+T
+
+e
+
+− rt / t*
+
+
+
+.
+
+
+
+
+(80)
+
+Normalization of the vector qt is guaranteed by equation
+(79).
+4. Otherwise qt is given by the following expression
+q*(1) − q∞ (1)
+
+ exp[t / t* log( q (1) − q (1))]
+0
+∞
+T
+(q0 − q∞ )T 
+q∞
+
+qtT =
++
+1 + wt
+1 + wt 
+
+
+
+
+
+
+
+,
+
+q (n) − q∞ (n) 
+exp[t / t* log( *
+)] 
+q0 (n) − q∞ (n) 
+
+(81)
+
+where the function wt is given by
+n
+
+ q (i) − q∞ (i)  
+wt = ∑ [q0 (i) − q∞ (i)]exp  t / t* log  *
+ .
+
+ q0 (i) − q∞ (i)  
+i =1
+
+
+
+(82)
+
+sequence Y ( TtXY → X ); to a gap in sequence X ( TtXY →Y );
+or to end the alignment ( TtXY → E ).
+Below are some arbitrary values for the transition vector at
+divergence times: t = 0, t = t*, and t = ∞ associated with
+state "XY", qXY,
+
+XY
+q0
+
+ 1.0(1 − τ ) 
+ 0.74(1 − τ ) 
+ 0.00(1 − τ ) 
+
+
+
+
+
+
+0.0(1 − τ )  XY  0.13(1 − τ )  XY  0.50(1 − τ ) 
+=
+,q
+.
+,q
+=
+=
+ 0.0(1 − τ )  *
+ 0.13(1 − τ )  ∞
+ 0.50(1 − τ ) 
+
+
+
+
+
+
+
+
+
+
+
+
+τ
+τ
+τ
+
+
+
+
+
+
+
+(84)
+
+The transition TXY→E = τ is related to the expected length of
+the alignments generated using the model. We typically
+want to keep that transition invariant through time, and
+correlated with the alignment length L: τ = 1/L. (This pair
+HMM produces sequences with a geometric length distribution of mean 1/τ.) The other three transitions change
+with time from a situation of no gaps at time zero, to a situation at time infinity in which all there is present is gaps,
+because no residue in either sequence has a homologous
+residue in the other.
+Transition probabilities at t = 0 and t = ∞ can be stated
+from first principles. Transitions at the generating time t*,
+are estimated from data, at the same time that emission
+probabilities are estimated. The transition probabilities at
+any other time are given by applying the algorithm. Using
+equation (81) we obtain,
+ 0.8942(1 − 1 / L) 
+ 0.6550(1 − 1 / L) 
+
+
+
+
+0.0529(1 − 1 / L)  XY
+0.1725(1 − 1 / L) 
+XY
+,
+q0.3 t* = 
+, q1.6 t* = 
+ 0.0529(1 − 1 / L) 
+ 0.1725(1 − 1 / L) 
+
+
+
+
+
+
+
+
+1/ L
+1/ L
+/
+
+
+
+
+
+(85)
+
+Similarly to this "XY" state case, all the other transition
+probabilities that appear in the pair model of Figure 3
+could be continuously parameterized with the divergence
+time of the alignment being scored. This algorithm can be
+
+Page 15 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+applied to any full set of transition probabilities emerging
+from a particular state in a given probabilistic model that
+must evolve with time.
+Connection with a tree-HMM 2×2 match-transition matrix
+In the original representation of a tree-HMM [35] the idea
+of a match-transition matrix is introduced. If one parse
+through the HMM generated a Match to Match (MM)
+transition, while another parse through the model generated a Match-to-Delete (MD) transition, one can consider
+the substitution of MM by MD similarly to a substitution
+of residues by the conditional probability P(MD|MM, t).
+This leads to the concept of a 2 × 2 match-transition
+matrix given by,
+
+MM
+
+MD
+
+MM  P(MM | MM, t ) P(MD | MM, t )  ,
+
+
+MD  P(MM | MD, t ) P(MD | MD, t ) 
+
+(86)
+)
+
+MD
+
+MM  a + (1 − a)e
+
+MD  a − ae −rt
+
+
+− rt
+
+(1 − a)(1 − e
+1 − a + ae
+
+− rt
+
+− rt
+
+)
+.
+
+
+
+(87)
+
+Tree-HMMs model the evolution of paths though the
+HMM. In contrast, the method proposed here models the
+evolution of the transition probabilities of the model
+themselves. However, one can see that the match-transition matrix is closely related in form to the model we have
+proposed here. Introduce the probability vectors,
+ P(MM | MM, t )  MD  P(MM | MD, t ) 
+=
+qtMM = 
+ , qt
+.
+ P(MD | MM, t ) 
+ P(MD | MD, t ) 
+
+MM  1 
+MD  0 
+MM
+MD  a 
+q0 =   , q0 =   , q∞ = q∞ = 
+.
+0
+1
+1− a 
+
+=
+
+MD
+q∞
+
++e
+
+tR
+
+MD
+(q0
+
+MD
+− q∞ ),
+
+(92)
+
+where I is the n × n identity matrix, r is a vector still to be
+identify, and a R is a n × n rate matrix.
+This model simply adds to the exponential term a time
+independent vector a,
+
+(93)
+
+Because qt=0 = q0, then it is necessary that a = q0 - r, thus giving the expression in equation (92). Note that this is the
+most general solution of a differential equation of the
+form qt ∝ (qt - a). Until now it was always assumed that
+the constant term was zero, that is r = q0. The freedom
+added by including a term constant in time is that, while
+before the behavior at t = ∞ was solely controlled by etR,
+now the additional term also contributes to that limit.
+An immediate consequence of this generalization is that
+the rate matrix is not now sufficient to determine the
+whole evolutionary process. In addition to the rate matrix,
+the probability vector must also be specified at time zero
+(no divergence) and at time infinity (all mutations have
+saturated) such that,
+T
+T
+q∞ = qo + r T  lim etR − I  .
+ t →∞
+
+
+
+
+(94)
+
+The exponential of the rate matrix R has the general form,
+(89)
+
+It is easy to see that the match-transition matrix given in
+equation (87) can be rewritten as,
+
+qtMD
+
+T
+qtT = q0 + r T (etR − I),
+
+(88)
+
+For t = 0 and t = ∞ they have the following values,
+
+MM
+MM
+MM
+qtMM = q∞ + etR (q0 − q∞ ),
+
+Derivation of the algorithm to evolve a vector of transition
+probabilities
+To describe the evolution of transition probabilities, the
+simple exponential models used for substitution matrices
+are not sufficient. I propose to adopt a generalization of
+the exponential model of the form,
+
+qtT = aT + r T etR .
+
+which in [35] is parameterized with two real numbers r ≥
+0, and 0 ≤ a ≤ 1 as
+
+MM
+
+because it corresponds to the case described in equation
+(80).
+
+(90)
+(91)
+
+ −r 0 
+for a diagonal rate matrix R = 
+ . Such diagonal
+ 0 −r 
+rate matrix does not require additional normalization
+
+
+ k1
+
+
+= exp  −t U 
+
+
+
+
+
+
+
+ −1 
+U 
+
+kn 
+
+
+
+ e −k1t
+
+= U
+
+
+
+
+e
+
+tR
+
+
+ −1
+U ,
+
+
+
+
+e
+
+− knt
+
+(95)
+
+for some real eigenvalues {ki }n=1 . If conditions are
+i
+restricted to the case in which ki > 0, ∀i, the immediate
+consequence of working with positive eigenvalues is that,
+
+Page 16 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+q0(i) <q*(i) <q∞ (i) or q0 (i) >q* (i) >q∞ (i).
+
+lim e
+
+tR
+
+t →∞
+
+= 0.
+
+(96)
+
+There is then a simple relationship between the vector r
+and the values of the probabilities at time zero and
+saturation,
+q∞ = q0 - r.
+
+(97)
+
+(104)
+
+Even though this model was derived under the conditions
+of equation (104), it also extends to the degenerate case
+where for some i we have
+q0(i) = q*(i) = q∞(i),
+
+(105)
+
+since this simply corresponds to these parameters undergoing no evolution at all.
+
+Therefore, we can write with all generality
+qtT
+
+=
+
+T
+q0
+T
+q∞
+
+T
+
++ r [e
+
+tR
+
+− I]
+
++ (q0 − q∞ )T etR
+ e −k1t
+
+T
+= q∞ + (q0 − q∞ )T U 
+
+
+
+=
+
+Therefore if the input column vectors satisfy one of the
+three previous conditions for each one of their elements,
+the parametric expression is
+(98)
+
+ −1
+U .
+− knt 
+
+e
+
+
+qtT
+
+=
+
+However, for the given information (q0, q*, q∞), the timeparameterized vector qt in (98) is still underdetermined.
+In order to reduce the amount of freedom, I assume that
+etR is diagonal (i.e. U = I). Diagonal rate matrices have
+been used in other contexts of generalized evolution such
+as the tree-HMM model [34,35]. Then we have,
+
+ e −k1t
+
+T
+qtT = q∞ + (q0 − q∞ )T 
+
+
+
+
+e −knt
+
+
+
+.
+
+
+
+
+(99)
+
+At this time the known probabilities at the generating
+time t*, q*, have not yet been used. These are,
+T
+T
+q* = q∞ + (r(1)e −k1t* ,..., r(n)e −knt* ).
+
+(100)
+
+Thus we obtain
+
+e −kit* =
+
+q (i) − q0 (i)
+q*(i) − q∞ (i)
+= 1+ *
+,
+q0 (i) − q∞ (i)
+q0 (i) − q∞ (i)
+
+which can be solved for ki,
+
+ki = −
+
+q (i) − q∞ (i)
+1
+log *
+.
+t*
+q0 (i) − q∞ (i)
+
+(102)
+
+The condition ki > 0 translates into 0 < e −kit* < 1, or
+
+−1 <
+
+q*(i) − q0 (i)
+< 0.
+q0 (i) − q∞ (i)
+
+(103)
+
+T
+= q∞ + (q0 − q∞ )T etR
+
+1
+(101)
+
+T
+q∞
+
+
+
+q (1) − q∞ (1) 
+)
+ exp  t / t* log( *
+)
+q0 (1) − q∞ (1) 
+
+
+
++ (q0 − q∞ )
+
+
+
+
+
+T
+
+
+
+
+.
+
+
+q*(n) − q∞ (n)  
+exp  t / t* log(
+) 
+q0 (n) − q∞ (n)  
+
+
+
+(106)
+
+A normalization condition has not yet been imposed.
+Using the unity vector uT = (1,..., 1), normalization
+requires that
+
+qtT u = 1 ∀t.
+
+(107)
+
+For an evolutionary model of the form qt ∝ etR normalization requires that etRu = u for arbitrary times. I refer to this
+property as the strong normalization condition. The normalization of a generalized evolutionary model of the
+T
+T
+form qt = q∞ + (q0 − q∞ )T etR requires the weaker condition (q0 - q∞)TetRu = 0. This property is always true for a rate
+matrix that satisfies the strong normalization condition. I
+refer to this property as the weak normalization
+condition.
+
+In order to obtain the strong normalization condition
+automatically it is necessary to have a rate matrix of the
+form R = U diag (0, - λ2,..., -λn) U-1 (see Appendix A, equation (193)). Such a type of rate matrix is not appropriate
+to describe the evolution of a probability vector, since
+such rate matrix cannot be uniquely inferred from the
+three input probability vectors q0, q*, q∞. For that reason, I
+have explored the use of rate matrices of the diagonal
+form R = diag (-k1,..., -kn), which can be inferred from the
+three input probability vectors q0, q*, q∞ using expression
+(102). Such diagonal rate matrices, however, in general do
+not satisfy the strong normalization condition, thus the
+weak normalization normalization condition must be
+obtained by other means.
+Define wt:
+
+This condition has two solutions:
+
+Page 17 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+T I→I
+
+wt ≡ (q0 − q∞ )T etRu
+
+q (i) − q∞ (i) 
+) .
+= ∑ [q0 (i) − q∞ (i)]exp  t / t* log( *
+q0 (i) − q∞ (i) 
+
+i =1
+n
+
+(108)
+
+If the input vectors satisfy the condition for all i,
+
+q*(i) − q∞ (i)
+= −r ,
+q0 (i) − q∞ (i)
+
+(109)
+
+for some real number r > 0, then the rate matrix has the
+particular form R = diag(-r,..., -r), the function wt = 0 for
+arbitrary times, and the weak normalization condition is
+satisfied automatically.
+The previous condition is in general too restrictive. If the
+previous condition is not satisfied, by construction wt is
+zero at t = 0, t = t* and t = t∞, but in general wt ≠ 0 for n >
+2. Normalization is then achieved (107) by modifying our
+definition of qt to
+
+qt ←
+
+qt
+1 + wt
+
+The final expression is
+
+qtT =
+
+q*(1) − q∞ (1)
+
+ exp[t / t* log( q (1) − q (1))]
+0
+∞
+T
+(q − q∞ )T 
+q∞
+
++ 0
+1 + wt
+1 + wt 
+
+
+
+
+
+
+
+.
+
+q*(n) − q∞ (n) 
+exp[t / t* log(
+)] 
+q0 (n) − q∞ (n) 
+
+(110)
+
+Evolution of a matrix of transition probabilities
+In some cases, several states of a model correspond to a
+particular evolutionary event, and it seems natural to
+expect that their transitions would evolve under the control of the same rate matrix. For instance, in a profile
+HMM (Figure 4) I will consider the joint evolution of the
+transitions of three states associated with a given consensus position: Match (M), Insert (I), and Delete (D).
+
+For a collection of m states S = {S1,..., Sm} that transition
+into a collection of n states E = {E1,..., En}, consider the set
+of all transition probabilities emerging from the m originating states S and ending in the n states E,
+
+T
+
+Si → Ei ,
+
+for i = 1,..., m, and i = 1,..., n.
+
+n
+
+i =1
+
+Si → Ei
+
+= 1. for all Si .
+
+T M →M
+
+/ M
+dd
+?
+dd
+~~
+dd ~~~ D→M
+dd ~ T
+~
+~~ddd M →D
+~
+T
+dd
+~~
+dd
+~
+d
+~~
+~
+HIJK
+ONML
+HIJK
+/ ONML
+D
+D
+D→D
+M
+
+T
+
+Figure
+Part of a4profile HMM model
+Part of a profile HMM model. For a profile HMM we
+depict the transition probabilities associated with the states
+of a given consensus position in the profile: Match (M), Insert
+(I), and Delete (D). The three states corresponding to the
+next position in the profile are referred to with primes. The
+Match state has three transitions (into I, M', and D'), while
+the Insert and Delete states have two transitions each (into I
+and M', and into D' and M' respectively).
+
+(111)
+
+The set of S and E states do not have to be mutually exclusive, and some E states can also be part of the S set. The set
+of E states also has to be complete, in the sense that
+
+∑T
+
+c c
+ cc
+
+
+c
+ I c
+cDc 
+
+c
+Ù c  UUU
+Ù
+UU
+ÙÙ
+UUT I→M
+T M →I ÙÙ
+UU
+Ù
+Ù
+UU
+Ù
+U
+ÙÙ
+Ù
+
+(112)
+
+design. For instance, for the states associated with a consensus position in a profile HMM the set of originating
+states is S = {M, D, I}, and the set of ending states is E =
+{M', D', I}, where the prime index indicates the next position in the profile. The condition m ≤ n can be imposed
+with all generality.
+
+On the other hand, not all E states need to be reached by
+a given Si state; some transitions may be forbidden by
+Page 18 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+We want to describe the evolution with time of the transition probabilities. For that purpose, I will use the m × n
+matrix of transitions Qt such that,
+
+Qt (ii) ≡
+
+S →E
+Tt i i .
+
+fashion that change is absorbed by the transition probabilities into any other E state.
+A step-by-step description of the algorithm
+The recipe to implement the algorithm is as follows:
+
+(113)
+
+Note that an evolutionary model of the form Qt = Q0etR,
+like that used for evolving gaps as extra characters, is not
+sufficient. A model of the form Qt = Q0etR in the limit of
+infinite divergence would necessarily result in transitions
+that for a given end state are all identical and independent
+of the previous state. That is clearly too restrictive for most
+models, for instance in a profile HMM, in which some of
+the transitions are not evolved and are set to zero.
+
+1. Assume we know the m × n (m ≤ n) matrices of transition probabilities at time zero Q0 and at time infinity Q∞,
+such that the rank of Q0 - Q∞ is m.
+
+In order to allow for more general saturation properties of
+the transition probabilities, I propose the following
+model for the evolution of the matrix of transition
+probabilities,
+
+3. If the information given is the set of transition probabilities at a generating time t*, calculate the rate matrix R
+as,
+
+Qt = Q0 + K
+
+(etR -
+
+I),
+
+R=
+
+(114)
+
+where R is the n × n rate matrix, and the m × n matrix K is
+still to be determined. This extension (as in the vector
+model proposed before) corresponds to adding a constant
+term A = Q0 - K, and it is is the more general solution of a
+differential equation of the form Qt ∝ (Qt - A).
+
+= Q∞ + (Q0 - Q∞) etR.
+
+1
+1 l =∞ (−1) l +1
+log[In×n + O(Q* − Q0 )] = ∑
+[O(Q* − Q0 )]l .
+t*
+t* l =1 l
+
+(119)
+
+The n × m matrix O is obtained by solving the set of linear
+equations
+-(Q∞ - Q0) O + umvT = Im × m,
+
+(120)
+
+where um is the m dimensional unity vector [i.e.
+T
+um = (1,...,1) ], and v is a m dimensional vector uniquely
+determined by the set of m independent linear equations,
+
+We will see that K(etR - I) = (Q0 - Q∞)(etR - I), thus
+Qt = Q0 + (Q0 - Q∞) (etR - In × n),
+
+2. If an analytic n × n rate matrix R is given, one can find
+the analytic expression for etR by solving the differential
+equation d(etR)/dt = RetR, and jump to step (6). For a
+numerical solution jump to step (5).
+
+(115)
+vT (Q∞ - Q0) = 0,
+
+(116)
+
+As in the previous case, a freedom provided by the additional constant-in-time term is that while the saturation
+behavior of Q0etR is controlled by the saturation probabilities of etR, the model given by equation (116) is independent of those saturation probabilities so that the
+probabilities at infinity can be set arbitrarily. That is,
+assuming that ψ is the n dimensional vector of saturation
+probabilities of etR,
+
+lim Q0etR = Q0unψ T = unψ T ,
+
+(117)
+
+t →∞
+
+vT um = 1.
+
+(121)
+
+(122)
+
+The solution of equation (120) is not unique. In fact,
+equation (120) determines the matrix O up to a n dimensional probability vector ψ that satisfies the conditions ψT
+O = 0. This probability vector corresponds to the saturation probabilities of the matrix etR. While the rate matrix R
+and the matrix etR depend on the choice of the saturation
+probabilities ψ, the asymptotic behaviour of the matrix of
+transition probabilities is independent of ψ, as was shown
+in equation (118).
+4. Impose the condition,
+
+lim[Q∞ + (Q0 − Q∞ )e ] = Q∞ + (Q0 − Q∞ )unψ
+tR
+
+t →∞
+
+T
+
+= Q∞ .
+
+(118)
+
+Notice that while Qt, Q0, Q∞ and K are m × n matrices operating in the S × E space, the matrices R and etR are square
+n × n matrices operating in the E × E space. In fact, etR
+determines the change in time that a transition probability into one of the E states experiences and in which
+
+vT (Q* - Q0) = 0.
+
+(123)
+
+This condition [necessary so that ψT R = 0] imposes constraints between the set of probabilities at time zero, at
+time t*, and at time infinity.
+
+Page 19 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+5. Calculate the exponential of the rate matrix etR using the
+corresponding Taylor expansion.
+6. Finally, calculate the set of evolved transition probabilities as,
+Qt = Q0 - (Q∞ - Q0)(etR - In × n)
+
+M′
+
+(125)
+
+Consider the following the transition matrix
+
+ M→ M′
+M  Tt
+Qt = D  TtD→ M′
+
+I  T I → M′
+ t
+
+D′
+
+I
+
+TtM→D′
+TtD→D′
+0
+
+D′
+
+I
+
+M  1 − (mD + mI ) mD
+
+Q∞ = D 
+dD
+1 − dD
+
+I
+1 − iI
+0
+
+An example: Evolution of the transitions of a profile HMM given a
+rate matrix
+To illustrate this method, consider the case of a profile
+HMM (Figure 4). There are three states associated with a
+given consensus position in the profile: the Match state
+(M), the Insert state (I) and the Delete state (D). These
+three states transition into states M' (the Match state at the
+next position in the profile), D' (the delete state at the next
+position in the profile), and I (the insert state between the
+two matched positions), therefore in this example m = 3
+and n = 3.
+
+M′
+
+At time infinity, one can parameterize the transition probabilities as
+
+(124)
+
+or
+Qt = Q∞ + (Q0 - Q∞) etR.
+
+times when TδM→ I > 0 , the average length of a insertion
+t
+would be very close to one.
+
+TtM→t 
+
+0 .
+
+TtI → I 
+
+
+( 126 )
+
+mI 
+
+0 .
+iI 
+
+
+( 128 )
+
+where mD and mD represent the probabilities of Match to
+Delete and Match to Insert at infinity, and dD and iI are the
+Delete to Delete and Insert to Insert probabilities at time
+infinity, (0 ≤ mD, mI, dD, iI ≤ 1).
+Let us assume that the rate matrix is given by
+
+M′
+
+D′
+
+M′  −2α
+
+R = D′  α
+I  α
+
+
+α
+−2α
+α
+
+I
+
+α 
+
+α .
+−2α 
+
+
+( 129 )
+
+for some parameter α > 0. This rate matrix assumes that
+the rate of change in the occurrence of state M' is similar
+to that of state D' and that of state I, and that this change
+reverts equally into the other two states. More realistic situations can be achieved using rate matrices depending on
+more parameters.
+
+This transition matrix, like a nucleotide substitution
+matrix, adds up to one by rows. We assume as in HMMER
+[4] that there are no transitions between the Insert and the
+Delete states, but the model could work under more general conditions.
+
+The instantaneous rate of transition change is given by,
+
+The matrix at time zero is given by
+
+This matrix gives the instantaneous change that a transition probability experiences under this model and
+describes how that change is transferred to the other
+allowed transition probabilities.
+
+M′
+M 1
+
+Qt = D  1 − qD
+I  1 − qI
+
+
+D′
+
+I
+
+0
+qD
+
+0
+0
+qI
+
+0
+
+
+
+.
+
+
+
+( 127 )
+
+The parameter 1/(1 - qI) is the average length of an insert
+in between two matched positions at very short times (if
+there were no deletions). The parameter 1/(1 - qD) is the
+average length of a deletion at very short times (if there
+were no insertions, and all position in the profile had the
+same parameters at time zero). For instance, one could set
+qI very close to zero, which implies that, for very small
+
+M′
+
+D′
+
+I
+
+M  −3α (mD + mI )
+3α mD
+3α mI 
+
+
+0
+−(Q∞ − Q0 )R = D  −3α (dD − qD ) 3α (dD − qD )
+.
+I  −3α (iI − qI )
+0
+3α (iI − qI ) 
+
+
+
+( 130 )
+
+The matrix etR can be obtained analytically by solving the
+differential equation d(etR)/dt = RetR. This is a 3-dimensional Jukes-Cantor model which has as its solution,
+
+M′ D′ I
+e
+
+tR
+
+M′  rt
+
+= D′  st
+I  st
+
+
+st
+rt
+st
+
+st 
+
+st  .
+rt 
+
+
+( 131 )
+
+with
+
+Page 20 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+1 2
+rt = + e −3α t ,
+3 3
+st =
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+idues in between the two matches a and b; the model
+assigns to such sequence a probability given by,
+
+(132)
+
+P(ai1...inb | t ) = pM(a)pM′ (b)pI (i1 )...pI (in )TtM→ I (TtI → I )n−1 TtI → M′ ,
+
+1 1 −3α t
+− e
+.
+3 3
+
+(133)
+
+where pI(ii) represent the emission probabilities associated to the Insert state.
+
+Putting all together, we obtain the following evolved transition probabilities for a profile HMM under a Jukes-Cantor like assumption for the rate matrix:
+M′
+
+D′
+
+M  1 − 3(mD + mI )st
+
+Qt = Q∞ + (Q0 − Q∞ )etR = D  (1 − qD ) − 3(dD − qD )st
+I  (1 − qI ) − 3(iI − qI )st
+
+
+
+
+.
+qI + 3(iI − qI )st 
+
+3mI st
+0
+
+TtM→ M′ = 1 − (mI + mD )(1 − e −3α t ),
+
+TtM→ I
+
+= mD (1 − e
+
+= mI (1 − e
+
+−3α t
+
+−3α t
+
+We can interpret that in time t the path through the model
+that generated ab has evolved into the path through the
+model that generated ai1...inb with probability given by
+
+I
+
+3mD st
+qD + 3(dD − qD )st
+0
+
+( 134 )
+
+Substituting the values for st given in equation (133), we
+have the following evolved transition probabilities for a
+profile HMM,
+
+TtM→D′
+
+(143)
+
+(135)
+
+P(ai1...inb | ab, t ) = pI (i1 )...pI (in )TtM→ I (TtI → I )n−1 TtI → M′ .
+
+(144)
+
+To get a better intuition of what this means, take as an
+example the case in which the time interval t is very small.
+Then the probability that a path between two matches in
+the HMM inserts n residues in time t ≈ 0 is
+n
+P(aii ...inb | ab, t ) ≈ pI (i1 )...pI (in )3α mI qI −1(1 − qI )t.
+
+),
+
+),
+
+(136)
+
+This probability is proportional to 3αmI the rate of substituting a Match-to-Match transition for a Match-to-Insert
+
+(137)
+
+TtD→ M′ = (1 − qD ) − (dD − qD )(1 − e −3α t ),
+
+(138)
+
+TtD→D′ = qD + (dD − qD )(1 − e −3α t ),
+
+(139)
+
+TtI → M′ = (1 − qI ) − (iI − qI )(1 − e −3α t ),
+
+(140)
+
+TtI → I = qI + (iI − qI )(1 − e −3α t ),
+
+n−1
+transition, and to qI (1 - qI), which is the geometric factor associated to an insert of length n at time zero.
+
+An example: Evolution of the transitions of a profile HMM given the
+transitions at a generating time
+In this case, we maintain the same values for the transition
+probabilities at time zero Q0 and at time infinity Q∞, but
+the rate matrix will be obtained from a generating time for
+which we know the transition probabilities.
+
+(141)
+
+The evolution of different paths through the HMM
+In a tree-HMM one assumes that the different paths
+through the model are the objects that are subject to evolution [34]. Here we have directly modeled the evolution
+of the transition probabilities of the HMM. We can get an
+intuition for the meaning of these evolved transition
+probabilities by estimating how these evolved transition
+probabilities induce the evolution of different paths
+through the model. A process that is similarly to that
+modeled by a one-branch tree-HMM.
+
+Suppose that at time zero, we emitted residue a from state
+M, and residue b from state M'. The model assigns to such
+sequence a probability given by,
+M
+P(ab | t = 0) = pM(a)pM′ (b)T0 → M′ = pM(a)pM′ (b),
+
+(145)
+
+(142)
+
+where pM(a) and pM'(b) represent the emission probabilities associated to the M and M' states respectively. Now
+suppose that at time t there has been an insertion of n res-
+
+The set of linear equations in step (3) of this algorithm
+that determine the vector vT = (v1, v2, v3) are
+mDv1 + (dD - qD)v2 = 0,
+mIv1 + (iI - qI)v3 = 0,
+v1 + v2 + v3 = 1.
+
+(146)
+(147)
+
+(148)
+
+The solution of these linear equations is
+v1 = (dD - qD)(iI - qI)/d,
+v2 = -mD(iI - qI)/d,
+v3 = -mI (dD - qD)/d,
+
+(149)
+
+(150)
+(151)
+
+where d ≡ (dD - qD)(iI - qI) - mD(iI - qI) - mI(dD - qD).
+Parameterize the matrix O in the form
+
+Page 21 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+ M1
+
+O =  D1
+ I
+ 1
+
+M2
+D2
+I2
+
+M3 
+
+D3  ,
+I3 
+
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+ 0.70 0.20 0.10 
+
+
+Q∗ =  0.60 0.40
+0 .
+ 0.70
+0
+0.30 
+
+
+
+(152)
+
+with each row adding to zero. The set of linear equations
+in step (3) that determine the matrix O are
+(dD - qD)(M1 - D1) + v1 = 0, (iI - qI)(M1 - I1) + v1 = 0,
+
+(153)
+
+(dD - qD)(M2 - D2) + v2 = 1, (iI - qI)(M2 - I2) + v2 = 0,
+
+(155)
+
+Selecting the particular values qD = qI = 0.1 and dD = iI = 0.6,
+using the constraints of equations (161) implies that mD =
+0.33 and mI = 0.25. Using these values and the arbitrary
+values for the saturation probabilities ψ = (1/3, 1/3, 1/3),
+we obtain the following O matrix:
+
+(154)
+
+(dD - qD)(M3 - D3) + v3 = 0, (iI - qI)(M3 - I3) + v3 = 1.
+
+(162)
+
+Solving Mi and Ii in terms of Di we have,
+m
+1
+1
+
+
+D1 − (iI − qI )
+D2 + (iI − qI − mI )
+D3 + I
+
+
+d
+d
+d
+
+
+O=
+D1
+D2
+D3
+.
+
+
+1
+1
+1
+ D1 + [(dD − qD ) − (iI − qI )] D2 + (iI − qI − mI − mD ) D3 − (dD − qD − mD − mI ) 
+
+
+d
+d
+d
+
+
+
+(156)
+
+The matrix O is therefore determined up to the unitary
+vector (D1,D2, D3). The saturation probabilities ψT = (ψM',
+ψD', ψI')(ψTR = 0) are defined by the equations ψTO = 0,
+which imply
+
+( dD − qD ) − (iI − qI )
+i − qI
+D1 = ψ M , I
+−ψ I
+,
+d
+d
+D2 = −ψ M′
+
+(157)
+
+iI − qI − mI
+i − qI − mI − mD
+,
+−ψ I I
+d
+d
+
+(158)
+
+mI
+d − qD − mD − mI
+.
++ψ I D
+d
+d
+
+(159)
+
+D3 = −ψ M′
+
+Substituting vector D with vector ψ we finally obtain the
+following expression for the matrix O in terms of the saturation probabilities ψ:
+O=
+
+ψ D′ (iI − qI ) + ψ I mD − ψ D′ mI
+−ψ D′ (iI − qI ) − ψ I (dD − qD )
+
+1
+−(ψ M′ + ψ I )(iI − qI − mI ) + ψ I mD
+(ψ M′ + ψ I )(iI − qI ) − ψ I (dD − qD )
+d
+
+ (ψ M′ + ψ D′ )(dD − qD ) − ψ D′ (iI − qI ) ψ D′ (iI − qI − mI ) − (ψ M′ + ψ D′ ) mD
+
+ψ I (dD − qD ) + ψ D′ mI − ψ I mD
+
+
+ψ I (dD − qD − mD ) − (ψ M′ + ψ I ) mI  .
+
+−(ψ M′ + ψ D′ )(dD − qD − mD ) + ψ D′ mI 
+
+6
+(160)
+
+The condition in step (4) of the algorithm translates in
+this case into the following relationship of parameters,
+M
+D
+(dD − qD )t* →D′ = mD (t* →D′ − qD ),
+M
+(iI − qI )t* → I
+
+ 8.0000 −4.6667 −3.3333 
+
+
+O =  −4.0000 1.3333 2.6667  .
+(163)
+ −4.0000 3.3333 0.6667 
+
+
+The rate matrix R constructed using equation (119) is
+given by
+
+(161)
+
+I
+mI (t*→ I
+
+=
+− qI ).
+This is an additional set of constraints that the "vector"
+algorithm does not impose.
+To test the algorithm I have made up a toy HMM consensus state, which at the generating time t* is given by the
+matrix of transitions,
+
+ −0.4757 0.3054 0.1703 
+
+
+R =  0.4406 −0.6109 0.1703  ,
+(164)
+ 0.0351 0.3054 −0.3406 
+
+
+and an instantaneous rate matrix -(Q∞ - Q0)R is given by,
+ −0.4323 0.3046 0.1277 
+
+
+−(Q∞ − Q0 )R =  −0.4569 0.4569
+0 .
+ −0.2554
+0
+0.2554 
+
+
+
+(165)
+
+The evolved set transition probabilities at time t = 0.3 is
+given by,
+
+ 0.8845 0.0800 0.0355 
+
+
+Q0.3 =  0.7800 0.2200
+0 .
+(166)
+ 0.8290
+
+0
+0.1710 
+
+Using the "vector" method, in which transition probability vectors evolve independently with the same set of
+parameters, we would have obtained the identical result,
+ 0.8846 0.0800 0.0354 
+
+
+0 .
+(167)
+Q0.3 =  0.7798 0.2202
+ 0.8290
+0
+0.1710 
+
+
+The normalization function wt given in equation (82) is
+different from zero only for dimensions larger than two.
+The second and third row effectively have dimension two
+(since one of the elements is always zero), and do not
+require normalization. For the first row the normalization
+function takes the value w0.3 = 0.0020.
+The vector method allows us to use more unrestricted sets
+of parameters than the matrix method since the conditions in equation (78) are independent for each row. In
+principle, however, the conditions in equation (161)
+
+Page 22 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+seem to allow behaviors that the vector model does not
+allow such as
+
+M
+t* →D′
+
+M
+t ∞ →D′
+
+>mD ≡
+
+′
+
+as long as, simultane-
+
+′
+
+D
+D
+ously, t* →D >dD ≡ t ∞ →D . In practice when I have tested
+that kind of situation, the rate matrices obtained are
+always not real, and therefore they lack any biological
+interpretation.
+
+Derivation of the algorithm to evolve a matrix of transition
+probabilities
+We start with a model of the general form
+
+Qt = Q0 + K (etR - In×n),
+
+(168)
+
+where Q0 is the known m × n matrix of probabilities at
+time zero, and the m × n matrix K must still be
+determined.
+Assume that we know the transition probabilities at time
+infinity, which we represent by the m × n matrix Q∞. Then,
+because of the asymptotic behavior of the exponential
+family etR, limt→∞etR = unψT for some n dimensional
+saturation probabilities, where ψT = (ψi,...,ψn), and the n
+T
+dimensional unity vector un = (1, ..., 1), we have
+
+Q∞ = Q0 + K (unψT - In×n).
+
+by Q*, the calculation of the rate matrix R involves the following steps:
+(a) The m × n matrix K is by construction invertible
+because we have imposed ki ≠ 0, for all rows i.
+A little aside with respect to matrix inversions is in order
+here. The (unique) inverse of a matrix is defined only for
+square matrices. One can introduce a inverse-like matrix
+for a non-square matrix; these are called pseudoinverses
+[69]. The pseudoinverse of a non-square matrix is not
+unique and many pseudoinverses can be defined; one of
+the best known is the Moore-Penrose matrix inverse [70].
+We will see how despite the fact that the pseudoinverse of
+K is not unique, we can still define Qt uniquely.
+Therefore solving for R in equation (114) at the particular
+time t* we have
+
+R=
+
+1
+log  I + K −1 ( Q* − Q0 )  ,
+
+
+t*
+
+(172)
+
+where K-1 is the n × m pseudoinverse of K defined by the
+conditions KK-1 = Im×m and K-1K = In×n.
+(b) Because the final result for Qt in equation (116) does
+
+(169)
+
+not depend on the values ki we can set them with all gen-
+
+This equation implies that
+
+erality to the form ki = ρ ≠ 0. Therefore we have
+
+K = -(Q∞ - Q0)+ k ψT,
+
+K = -(Q∞ - Q0) + ρum ψT.
+
+(170)
+
+where k is a m dimensional vector that represents the
+sums by rows of K, i.e. ∑jK(i, j) = ki which we impose to
+be different from zero.
+
+(173)
+
+Because K-1Kun = un and Kun = ρum, then we need that K-1um
+= ρ-1un. Therefore we propose that the n × m pseudoinverse matrix K-1 has the following form,
+
+K −1 = O +
+
+1
+un ν T ,
+ρ
+
+(174)
+
+Because for the exponential family etR we have the reversibility condition ψTetR = ψT for arbitrary time, introducing
+the expression for K in equation (170) in the equation
+(114) we have the general result,
+
+where the n × m matrix O, and the m dimensional vector
+v satisfy the conditions,
+
+Qt = Q0 - (Q∞ - Q0)(etR - In×n).
+
+O um = 0,
+
+(175)
+
+vTum = 1.
+
+(176)
+
+(171)
+
+This result proves point (6) of the previous algorithm
+description.
+Therefore if given Q0, Q∞ and a n × n rate matrix R, which
+satisfy the reversibility conditions ψTR = 0, we can calculate the evolved transition probabilities using the equation (171).
+
+(c) In order to satisfy K-1K = In×n we need to have,
+vT(Q∞ - Q0) = 0,
+
+(177)
+
+-O(Q∞ - Q0) + unψT = In×n.
+
+(178)
+
+In the case in which the information given is the set of
+transition probabilities at a generating time t*, designated
+Page 23 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+Equation (177) is a set of homogeneous linear equations
+that together with the normalization conditions in equation (176) uniquely determine the vector v.
+On the other hand, in order to satisfy KK-1 = Im×m, the following must apply:
+
+ψTO = 0,
+
+(179)
+
+-(Q∞ - Q0)O + umvT = Im×m.
+
+(180)
+
+Equation (180) is a set of linear equations which determines O aside from a dependence on an arbitrary probability vector. In particular we can find the expression of
+matrix O in terms of the vector ψ as we did in equation
+(160).
+Once the matrix O has been obtained using equation
+(180) as a function of the vector ψ, one can verify that the
+set of equations describe by (178) is automatically
+satisfied for any vector ψ as long as it satisfies the condition ψTO = 0. This is the result presented in step (4) of the
+algorithm.
+(d) Because ψ corresponds to the saturation probabilities
+of etR, then it is necessary that ψTR = 0. This condition is
+satisfied if,
+
+ψ T [O +
+
+1
+un ν T ]( Q* − Q0 ) = 0.
+ρ
+
+(181)
+
+Therefore it implies that,
+vT(Q* - Q0) = 0,
+
+(182)
+
+which is the condition imposed in step (4) of the algorithm. Under those conditions, it results for the rate
+matrix R,
+
+R=
+
+1
+log  In×n + O ( Q* − Q0 )  .
+
+
+t*
+
+Reversibility and multiplicativity
+For a given probabilistic model, imposing reversibility has
+different implications for its emission and transition
+probabilities. In pair models, we assume that the emission
+probabilities are reversible by imposing P(at, bt+t') =
+P(at+t',bt), which corresponds to using symmetric joint
+probabilities represented by the shorthand notation P(a,
+b|t'). If the emissions do not involve gaps, the marginal
+probabilities do not evolve, and the evolved joint probabilities are obtained from the evolved conditionals and
+the saturation probabilities. In the presence of gaps, I have
+described how to construct the evolved conditionals and
+the corresponding evolved marginals in a way that maintains reversibility for any arbitrary time, so that we can
+construct evolved symmetric joint probabilities.
+
+For transition probabilities the situation is different.
+Mathematically, a matrix of transition probabilities is like
+a substitution matrix (i.e. conditional probabilities) but
+there is not the equivalent of "joint" probabilities for transitions. To maintain reversibility for the transitions of a
+probabilistic model, one has to build reversibility in the
+design of the model. In particular, one needs to be sure
+that the transition probabilities that involve gaps lack any
+directionality. For instance, in the pair-HMM of Figure 3
+we need to impose that TtXY → X = TtXY →Y for arbitrary
+times. That is achieved by making sure that the input transition probabilities at time t*, zero and infinity do lack
+directionality.
+Another property of probabilistic models of evolution for
+residue substitutions is multiplicativity. Multiplicativity is
+an immediate property for evolutionary models of the
+form etR. For residue-substitution evolutionary processes,
+multiplicativity implies that the transition from one given
+event (say residue a) to another event (say residue b) in a
+finite time, if it goes through any intermediate state, has
+to be of the form of any other possible substitution. In
+mathematical terms,
+
+(183)
+
+Notice that the parameter ρ ≠ 0, which is necessary to be
+able to invert the matrix K to calculate the rate R, does not
+appear anywhere in the final result, either in the evolved
+transitions Qt or in the value of R. This results from the fact
+that in either equation the only relevant component is the
+projection of K (or K-1) into (etR - I). The same projection
+is what makes the vector ψ that appears in the pseudoinverse K-1 irrelevant. Even though limt→∞etR = uψT, it is also
+true that limt→∞ (Q∞ - Q0)etR = 0, so that the dependence
+on ψ disappears from the final expression of Q∞.
+
+P ( b a, t + t ′ ) = ∑ P ( c a, t ) P ( b c , t ′ ) .
+
+(184)
+
+c
+
+However, when allowing gaps, any intermediate evolutionary step can go through processes of deletions or
+insertions in addition to substitutions; therefore multiplicativity as described in the previous equation does not
+hold anymore. There is a natural explanation of why "substitutions-only multiplicativity" is modified when considering insertion and deletion events. Consider the
+evolution of gaps as single characters, which was introduced previously in this paper. The substitution matrix
+ε
+with gaps Qt satisfies the relationship
+
+Page 24 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+ε
+Qt +t ′
+
+=
+
+ε − ε
+Qt Q0 1Qt ′ .
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+(185)
+
+Analyzing this matrix equation by components and using
+the expression for Q0 given in equation (22), the substitution of residue a into residue b in finite time t + t' has the
+following terms:
+P ( b a, t + t ′ ) = ∑ P ( c a, t ) P ( b c , t ′ )
+c
+
++
+
+1
+P ( − a, t ) P ( b − , t ′ )
+q0
+
+
+1
++1−
+q0
+
+
+(186)
+
+
+ P ( − a, t ) ∑ pc P ( b c , t ′ ) .
+
+c
+
+The first term corresponds to pure substitution events of
+t
+
+t′
+
+→
+→
+the form a  c  b , and it is identical to equation
+(184). The second term modulated by the coefficient 1/q0
+(introduced in equation (65), which is part of the non
+trivial matrix Q0) represents the event in which
+t
+
+Conclusion
+Motivated by the goal of making QRNA (a comparative
+probabilistic method for RNA genefinding) an evolutionary model, I have introduced several probabilistic methods to describe the evolution of insertion and deletion
+events. The methods introduced here have a larger scope
+than this program alone, and they can be applied to other
+pair probabilistic models and to profile HMMs and SCFGs
+as well.
+
+t′
+
+a  −  − b . The third term (preceded by coeffi→
+→
+cient (1 - 1/q0)) represents the event in which
+t
+
+finite time could have appeared from a very large number
+of intermediate situations in which stretches of other
+nucleotides could have been added or removed. The simple one-to-one correspondence that models of substitutions maintain through evolution does not exist in the
+presence of insertion and deletion events. This does not
+mean that evolutionary models with gaps are inconsistent, however some traditional properties of phylogenetic
+trees of single residue evolution such as the pulley principle [71] cannot be applied under the transition probability evolution models.
+
+t′
+
+a  − c  − b . Note that this model would align at
+→
+→
+time t + t' residues which could have been derived by a gap
+intermediate. This is usually discouraged by evolutionary
+models that describe the evolutionary history of insertions and deletions, in which such event would be reprea −
+sented as
+. For the model at hand, the fact that a gap
+− b
+can revert into a residue is a consequence of treating gaps
+as an additional residue in a substitution matrix.
+For the particular case of the generalized Jukes-Cantor
+model introduced before, it turns out that the two extra
+terms in equation (186) are independent of the particular
+substitutions and cancel, such that
+
+
+1
+1  1 − γ t′
+γ t ξt ′ +  1 −
+= 0.
+(187)
+γ t
+q0
+q0 
+4
+
+Therefore the generalized Jukes-Cantor model preserves
+multiplicativity. This results from the extreme simplicity
+of the model and is not true for more complicated models. For instance, for the rate matrix created from a particular Q* in the other example presented in this paper
+(which is a particular case of the REV model [44]), the two
+extra terms in equation (186) are different for the different nucleotide substitutions, and do not cancel out.
+A more complicated situation appears for probabilistic
+models that introduce gaps in an affine manner. A given
+residue-to-residue substitution process that occurred in a
+
+I described an algorithm which addresses the evolution of
+gaps as an extra residue in a (N + 1) × (N + 1) substitution
+matrix. This method can be applied to the joint emission
+probabilities of pair models. This method allows us to
+maintain a stationary N-dimensional background distribution, while the actual (N + 1)-dimensional background
+frequencies evolve towards all gaps at time infinity. I call
+this process quasi-stationary. As an example, I showed an
+analytic solution for the Jukes-Cantor model extended to
+gaps.
+I also presented two methods for the evolution of transition probabilities in a profile or pair HMM or SCFG, that
+are applicable to any probabilistic model that uses transitions between states to model insertions and deletions. In
+the first algorithm, the transition probabilities associated
+with one state in the model are evolved as a vector independently of the transition probabilities associated to any
+other state in the model. I also presented a second algorithm in which the transition probabilities associated with
+a given set of states co-evolve under the control of a single
+rate matrix. I presented an example of the application of
+these methods to a pair-HMM and to a profile HMM.
+I have applied these methods to the program QRNA,
+which was the motivation for the development of the
+algorithms in the first place. QRNA contains three probabilistic models (the oth, cod, and rna models) that analyze the pattern of mutation of a given pairwise alignment
+to decide which of the three models best classifies the
+alignment. These models are a combination of generalized pair-HMMs and a pair-SCFG. Originally, this program assumed a fixed divergence time, and all the
+
+Page 25 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+emission probabilities of the different models were tied to
+those of BLOSUM62. That produced a QRNA parameterized for highly diverse sequences, which in turn produced
+a large number of false positives for highly similar
+sequences. In the new program eQRNA, all emission and
+transition probabilities are a continuous time-dependent
+family able to match any possible degree of sequence
+divergence.
+The three models of QRNA (the OTH, COD, and RNA
+models) need to be at approximately the same evolutionary distance, so that when a pairwise alignment is analyzed, the differences in scores of the models result from
+observing a different pattern of mutations (coding, RNA,
+or none in particular) rather than because one model
+favors more closely related sequences than the other. This
+model synchronization requires a number of QRNA-specific design elements which are tangential to the implementation of the evolutionary models for indels and
+transition probabilities presented in this paper. For reasons of clarity, I leave for another paper a detailed description of the particular implementation designs that went
+into eQRNA in order to make it fully evolutionary. In a
+nutshell, the transition probabilities of the OTH and COD
+models are evolved according to the algorithm to evolve
+vectors of transition probabilities, while the emission
+probabilities of those two models were evolved using the
+original QRNA parameters as the generating time of the
+respective rate matrix. In the RNA model, for the contextfree grammar component of the model, the transitions are
+fixed, and the evolution of gaps is accommodated by
+treating gaps as extra characters according to the method
+presented here for that purpose. The HMM component of
+the RNA model is parameterized with time similarly to the
+OTH and COD models. Preliminary results show an
+important improvement compared with the previous
+fixed-time implementation. The application of these evolutionary methods for other probabilistic models for
+sequence comparison beyond eQRNA should be
+tractable.
+So far the methods presented here have been introduced
+only in profile and pair models. They could also be
+applied to probabilistic models where, instead of aligning
+two contemporary sequences, one aligns a sequence to an
+ancestor. The only difference with respect to an evolutionary pair model is that, in this case, the emission probabilities will be the substitution (conditional) matrices
+themselves instead of joint conditional-on-time probabilities. One important limitation of the methods presented
+here is that, in general, they lack the property of multiplicativity. In consequence, in order to extend the methods
+presented here to more than two sequences related by a
+phylogenetic tree, one would have to work with rooted
+trees. A future challenge is to incorporate these evolution-
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+ary methods into multiple sequence probabilistic models
+that explicitly describe the phylogenetic relationship
+between the sequences.
+
+Availability
+The different models presented in this paper have been
+implemented in several small ANSI C programs. These are
+not fully developed software applications, but demonstrations (for those who want to avoid the mathematical
+descriptions) of how the different algorithms work. The
+programs are freely available at http://selab.wustl.edu/
+publications/Rivas05/evolve.tar.gz.
+
+Methods
+Appendix A. Conditions for the saturation of a generalized
+substitution matrix
+In this appendix I provide the conditions for saturation of
+a generalized evolutionary model of the form Qt = Q0etR.
+Saturation can be described as
+ q1
+ ∞
+lim Qt = 
+t →∞
+ 1
+q
+ ∞
+
+n
+q∞   1 
+   1
+n
+T
+ =   q∞ ,… , q∞ = uq∞ ,
+ 1
+n
+q∞   
+
+
+(
+
+)
+
+(188)
+
+for the unitary vector u, and a set of saturation frequencies
+T
+at time infinity denoted by q∞, such that q∞ u = 1 .
+
+Here I show that saturation of Qt = Q0etR is a necessary
+condition of two properties of the matrix Q = {Q(ij)},
+normalization and positivity. I also show that the saturation probabilities of Qt are the same as those of etR.
+Proposition A.1. Consider first the simplest case Qt = etR.
+Normalization, i.e. ∑jQ(ij) = 1, together with positivity,
+i.e. Q(ij) > 0 ∀i, j, imply that a substitution matrix of the
+form Qt = etR saturates to a set of probabilities at time
+infinity.
+Proof. Normalization of the rate matrix, ∑j Q(ij) = 1
+implies that
+
+1 1
+   
+Qu = Q   =   .
+1 1
+   
+
+(189)
+
+That is, λ = 1 is an eigenvalue of Q. It also has implications
+for the norm of Q, defined as the largest row sum of absolute values
+n
+
+Q ≡ max ∑ Q(ij) = 1.
+i
+
+(190)
+
+j =1
+
+Page 26 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+Therefore, because of the spectral theorem [72], the spectral radius σ(Q), defined as the largest absolute value of
+any eigenvalue of Q, is bounded by,
+
+σ(Q) ≤ ||Q|| = 1.
+
+(191)
+
+1
+ 
+UΨ 0 =   .
+1
+ 
+
+(197)
+
+On the other hand there is an eigenvalue λ = 1 therefore
+
+Substituting in equation (195) we finally obtain,
+
+σ(Q) = 1.
+
+1
+ 
+lim Qt =   Ψ T U −1.
+0
+t →∞
+1
+ 
+
+(192)
+
+In consequence, Q has one eigenvalue, λ = 1, and all other
+eigenvalues are smaller than one.
+Therefore because the substitution matrix is of the form Qt
+= etR, it implies that the instantaneous rate matrix R has
+one null eigenvalue, and all the other are negative. If we
+assume that the null eigenvalue is not degenerate and that
+the negative eigenvalues are real, we can write with all
+generality,
+
+0
+
+−λ2
+R = U
+
+
+
+
+
+
+
+ U −1 ,
+
+
+−λn 
+
+
+t →∞
+
+(199)
+
+Proof. Note that by construction Q0 has to have the same
+normalization and positivity conditions as Qt. It can be
+
+(194)
+
+−
+T
+lim Q0 1Qt = uq∞ .
+
+t →∞
+
+(200)
+
+Therefore
+
+1
+ 
+0
+lim Qt = U   ( 1, 0,… , 0 ) U −1 = U Ψ 0 Ψ T U −1 ,
+0
+ 
+t →∞
+ 
+0
+ 
+
+T
+T
+lim Qt = (Q0u)q∞ = uq∞ ,
+
+t →∞
+
+which proves saturation for an evolutionary probabilistic
+process of the form Qt = Q0 etR.
+
+On the other hand using equation (194) we obtain
+ 1
+1
+ 
+ 
+ 0
+0
+   = U   , ∀t ,
+ 
+ 
+0
+ 
+ 
+e −tλn   0 
+
+
+(201)
+
+(195)
+
+for Ψ T = (1, 0, ..., 0).
+0
+
+1
+
+e −tλ2
+
+Qt U Ψ 0 = U 
+
+
+
+
+Corollary A.1. For a generalized evolutionary model of
+the form Qt = Q0etR, Qt also saturates at infinity, and the
+saturation probabilities of Qt are given by those of etR, that
+is,
+
+−
+shown that under those conditions, Q0 1 Qt = etR also has
+to add up to one, summing by rows, and all its elements
+have to be positive. Therefore, using the result of Proposition A.1,
+
+Therefore Qt = etR can be cast into the form,
+
+
+
+ −1
+U .
+
+e −tλn 
+
+
+T
+probabilities defined by q∞ = Ψ 0 U-1.
+
+t →∞
+
+for some matrix U, and such that λi > 0 for i = 2, ..., n.
+
+1
+
+e −tλ2
+
+Qt = U 
+
+
+
+In the limit,
+
+This is the saturation condition (188) for some saturation
+
+T
+lim Qt = lim etR = uq∞ .
+
+(193)
+
+(198)
+
+(196)
+
+which implies that UΨ0 is the eigenvector of Q corresponding to the eigenvalue λ = 1. According to (189) that
+is,
+
+Appendix B. Implications of reversibility on a generalized
+evolutionary process
+In this appendix I discuss the implications that reversibility imposes on a generalized evolutionary model. I show
+that for an evolutionary model of the form Qt = etR, the
+marginal probabilities with respect to which Qt is reversible have to be stationary, and therefore coincide with the
+saturation probabilities. I also show that for an evolutionary model of the general form Qt = Q0etR, the marginal
+probabilities with respect to which Qt is reversible can
+change with time. In this way we decouple the "reversibility" frequencies from the saturation frequencies. I also
+Page 27 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+demonstrate how to calculate the saturation probabilities,
+given Q0 and Q* at one particular time t*. This system sets
+the ground for the quasi-stationary model of evolution
+with gaps as an extra indel.
+
+Lemma B.3. If Q* is a conditional matrix that satisfies the
+reversibility condition (202) and R = log Q* then the saturation probabilities of R are given by the p* vector in
+(202), that is,
+
+Lemma B.1. Consider a given matrix of conditional probabilities Q*, [∑j Q*(ij) = 1 ∀i] which is reversible with
+respect to a set of marginal probabilities p*,
+
+t →∞
+
+p*(i)Q*(ij) = p*(j)Q*(ji).
+
+T
+fore p* Rn = 0 for n ≥ 0, and because of the relationship
+
+etR = I +
+
+(203)
+
+Proof. Summing one of the indices in the reversibility conditions and taking into account the normalization condition for the Q* matrix results in,
+
+∑ p*(i)Q*(ij) = p*( j)∑ Q*( ji) = p*( j),
+i
+
+(204)
+
+i
+
+which
+
+in
+
+T
+p* Q*
+
+T
+p* .
+
+=
+
+vectorial
+
+notation
+
+takes
+
+the
+
+form
+
+Lemma B.2. If R = log Q* then the reversibility condition
+(202) for Q* implies that
+T
+∧ p* R = 0.
+
+(205)
+
+Proof. If R = log Q* then because of the Taylor series we
+have
+
+R=
+
+1 n=∞ ( − )
+∑
+t* n=1 n
+
+n+1
+
+( Q* − I )n .
+
+(206)
+
+Because of the reversibility condition for Q* (202) it is
+also true that
+p*(i) (Q* - I)n (ij) = p*(j)(Q* - I)n (ji),
+
+(207)
+
+for n ≥ 1. Therefore it follows that
+p*(i) R(ij) = p*(j)R(ji).
+
+(208)
+
+i
+
+T
+∀j or p* R = 0.
+
+(tR)n
+,
+∑
+n=1 n!
+
+(211)
+
+it results that
+T
+T
+p* etR = p* .
+
+(212)
+
+for arbitrary t. Therefore, it also holds in the limit of very
+large time that
+T
+T
+p* lim etR = p* .
+
+(213)
+
+Additionally, Appendix A shows that limt →∞ etR = uqT .
+sat
+Combining those two equations together we have
+T
+T
+T
+p* = p* lim etR = p* uqT = qT .
+sat
+sat
+t →∞
+
+(214)
+
+This proves that the saturation probabilities are p*.
+Proposition B.1. For a reversible evolutionary model of
+the form Qt = etR, it results that the associated marginal
+probabilities with respect to which the parametric family
+Qt is reversible have to be stationary (i.e. time
+independent).
+Proof. From the parametric family Qt select one particular
+instance t*, and consider Q* = Qt =t∗ . Suppose that the
+marginal probabilities at this time are given by p*, that is:
+
+In addition we can also see by inspecting equation (206)
+that the normalization condition for Q* translates into ∑j
+R(ij) = 0 ∀i, which implies that
+
+∑ p*(i)R(ij) = 0
+
+n=∞
+
+t →∞
+
+(203)
+
+p*(i)R(ij) = p*( j)R( ji)
+
+(210)
+
+T
+Proof. Taking from Lemma B.2., we have p* R = 0 ; there-
+
+(202)
+
+Then one can see that reversibility implies
+T
+T
+p* Q* = p* .
+
+T
+lim etR = up* .
+
+(209)
+
+T
+T
+p* Q* = p* . Because of the relationship R = log Q*, it follows from Lemma B.3 that the whole parametric family etR
+has p* as the corresponding marginal probabilities, therefore the marginal probabilities do not evolve with time
+(stationary).
+
+Proposition B.2. For a reversible generalized evolutionary
+model of the form Qt = Q0etR, the associated marginal
+probabilities with respect of which Qt is reversible can be
+evolved with time.
+
+Page 28 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+proof. In order to prove that this is the case, we just need to
+find an example in which that statement is true. Consider
+again one particular instance Q* = Qt =t∗ with its corresponding marginal probabilities p*. Because the model is
+reversible for arbitrary divergence times, in particular
+there should be some p0 probabilities such that
+T
+T
+p0 Q0 = p0 . For this generalized model, the rate matrix is
+−
+given by R = log(Q0 1Q*) . Therefore it follow by Lemma
+B.3 that the saturation probabilities of R are given by the
+condition
+
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+
+−
+−
+p∞ (i)(Q0 1Q*)(ij) = p∞ ( j)(Q0 1Q*)( ji).
+
+(215)
+13.
+
+Therefore the saturation probabilities p∞ are different from
+p* as long as p0 ≠ p*.
+Therefore, we have constructed a parametric family, Qt =
+Q0etR, in which the marginal probabilities for reversibility
+are p0 at time zero, p* at t*, and p∞ at time infinity, with p0
+≠ p* ≠ p∞. Therefore if there is reversibility at arbitrary time,
+the marginals have to be time dependent,
+
+14.
+15.
+16.
+17.
+18.
+
+pt (i)Qt(ij) = pt(j)Qt (ji).
+
+(216)
+
+19.
+
+In particular in the Section "The evolution of emission
+probabilities with indels treated as an extra character" we
+have constructed a system in which the time-dependent
+reversibility condition (216) is satisfied by marginal probabilities that are quasi-stationary with respect to some (n
+- 1) p0 probabilities,
+pt(i) = p0(i) (1 - Λt), for i = 1,...n - 1
+pt(n) = Λt.
+
+(217)
+
+(218)
+
+Acknowledgements
+
+20.
+21.
+22.
+23.
+24.
+25.
+26.
+
+Thanks to Sean Eddy for numerous discussions. Thanks to Matt Visser for
+insights into matrix logarithms. This work was supported by the NIH
+National Human Genome Research Institute. I would like to acknowledge
+the Benasque Center for Science in which part of this work took shape at
+an ESF and NIH funded workshop on computational RNA biology in the
+summer of 2003.
+
+28.
+
+References
+
+30.
+
+1.
+2.
+3.
+4.
+5.
+
+Durbin R, Eddy SR, Krogh A, Mitchison GJ: Biological Sequence Analysis:
+Probabilistic Models of Proteins and Nucleic Acids Cambridge UK: Cambridge University Press; 1998.
+Krogh A, Brown M, Mian IS, Sjolander K, Haussler D: Hidden
+Markov models in computational biology: Applications to
+protein modeling. J Mol Biol 1994, 235:1501-1531.
+Karplus K, Barrett C, Hughey R: Hidden Markov models for
+detecting remote protein homologies. Bioinformatics 1998,
+14:846-856.
+Eddy SR: Profile hidden Markov models. Bioinformatics 1998,
+14:755-763.
+Eddy SR: Multiple Alignment Using Hidden Markov Models. In
+Proc Third Int Conf Intelligent Systems for Molecular Biology Edited by:
+
+27.
+
+29.
+
+31.
+32.
+33.
+34.
+
+Rawlings C, Clark D, Altman R, Hunter L, Lengauer T, Wodak S.
+Menlo Park, CA: AAAI Press; 1995:114-120.
+Burge CB, Karlin S: Finding the Genes in Genomic DNA. COSB
+1998, 8:346-354.
+Cawley SL, Pachter L: HMM sampling and applications to gene
+finding and alternative splicing. Bioinformatics 2003:II36-II41. ii36–
+ii41
+Meyer IM, Durbin R: Gene structure conservation aids similarity based gene prediction. Nucl Acids Res 2004, 32:776-783.
+Sakakibara Y, Brown M, Hughey R, Mian IS, Sjolander K, Underwood
+RC, Haussler D: Stochastic Context-Free Grammars for tRNA
+Modeling. Nucl Acids Res 1994, 22:5112-5120.
+Eddy SR, Durbin R: RNA Sequence Analysis Using Covariance
+Models. Nucl Acids Res 1994, 22:2079-2088.
+Lowe TM, Eddy SE: tRNAscan-SE: A Program for Improved
+Detection of Transfer RNA Genes in Genomic Sequence.
+Nucl Acids Res 1997, 25:955-964.
+Eddy SR: A Memory-Efficient Dynamic Programming Algorithm for Optimal Alignment of a Sequence to an RNA Secondary Structure. BMC Bioinformatics 2002, 3:18.
+Klein RJ, Eddy SR: RSEARCH: Finding homologs of single structured RNA sequences. BMC Bioinformatics 2003, 4:44.
+Knudsen B, Hein J: RNA secondary structure prediction using
+stochastic context-free grammars and evolutionary history.
+Bioinformatics 1999, 15:446-454.
+Dowell RD, Eddy SR: Evaluation of Several Lightweight Stochastic Context-Free Grammars for RNA Secondary Structure Prediction. BMC Bioinformatics 2004, 5:71.
+Rivas E, Eddy SR: Noncoding RNA gene detection using comparative sequence analysis. BMC Bioinformatics 2001, 2:8.
+Altschul S, Gish W, Miller W, Myers EW, Lipman DJ: Basic Local
+Alignment Search Tool. Jour Mol Biol 1990, 215:403-410.
+Yang Z: Estimating the pattern of nucleotide substitution. J
+Mol Evol 1994, 39:105-111.
+Goldman N, Thorne JL, Jones DT: Using evolutionary trees in
+protein secondary structure prediction and other comparative sequence analyses. J Mol Biol 1996, 263:196-208.
+Muse SV: Estimating synonymous and nonsynonymous substitution rates. Mol Biol Evol 1996, 13:105-114.
+Whelan S, Goldman N: general empirical model of protein evolution derived from multiple protein families using a maximum likelihood approach. Mol Biol Evol 2001, 18:691-699.
+Smith AD, Lui TW, Tillier ER: Empirical models for substitution
+in ribosomal RNA. Mol Biol Evol 2004, 21:419-421.
+Knudsen B, Andersen ES, Damgaard C, Kjems J, Gorodkin J: Evolutionary rate variation and RNA secondary structure
+prediction. Comput Biol Chem 2004, 28:219-226.
+Yang Z: A space-time process model for the evolution of DNA
+sequences. Genetics 1995, 139:993-1005.
+Felsenstein J, Churchill GA: Hidden Markov Model approach to
+variation among sites in rate of evolution. Mol Biol Evol 1996,
+13:93-104.
+Gribskov M, Veretnik S: Identification of sequence pattern with
+profile analysis. Methods Enzymol 1996, 266:198-212.
+Coin L, Durbin R: Improved techniques for the identification of
+pseudogenes. Bioinformatics 2004:I94-I100.
+McAuliffe JD, Pachter L, Jordan MI: Multiple-sequence functional
+annotation and the generalized hidden Markov phylogeny.
+Bioinformatics 2004, 20:1850-1860.
+Siepel A, Haussler D: Combining phylogenetic and hidden
+Markov models in biosequence analysis. J Comput Biol 2004,
+11:413-428.
+Thorne JL, Kishino H, Felsenstein J: An evolutionary model for
+maximum likelihood alignment of DNA sequences. J Mol Evol
+1991, 33:114-124.
+Thorne JL, Kishino H, Felsenstein J: Inching toward reality: an
+improved likelihood model of sequence evolution. J Mol Evol
+1992, 34:3-16.
+Metzler D: Statistical alignment based on fragment insertion
+and deletion models. Bioinformatics 2003, 19:490-499.
+Miklos I, Lunter GA, Holmes I: "Long Indel" model for evolutionary sequence alignment. Mol Biol Evol 2004, 21:529-540.
+Mitchison GJ, Durbin RM: Tree-based maximal likelihood substitutions matrices and hidden Markov models. J Mol Evol 1995,
+41:1139-11351.
+
+Page 29 of 30
+(page number not for citation purposes)
+
+BMC Bioinformatics 2005, 6:63
+
+35.
+36.
+37.
+38.
+39.
+40.
+41.
+42.
+43.
+44.
+45.
+46.
+47.
+48.
+49.
+50.
+
+51.
+52.
+53.
+54.
+55.
+56.
+57.
+58.
+59.
+60.
+61.
+62.
+63.
+64.
+
+Mitchison GJ: probabilistic treatment of phylogeny and
+sequence alignment. J Mol Evol 1999, 49:11-22.
+Holmes I, Bruno W: Evolutionary HMMs: a bayesian approach
+to multiple alignment. Bioinformatics 2001, 17:803-820.
+Qian B, Goldstein RA: Detecting distant homologs using phylogenetic tree-based HMMs. Proteins 2003, 52:446-453.
+Holmes I: Using guide trees to construct multiple-sequence
+evolutionary HMMs. Bioinformatics 2003, Suppl 1:147-157.
+Knudsen B, Miyamoto MM: Sequence alignments and pair hidden Markov models using evolutionary history. J Mol Biol 2003,
+333:453-460.
+Pedersen JS, Hein J: Gene finding with a hidden Markov model
+of genome structure and evolution. Bioinformatics 2003,
+19:219-227.
+Holmes I: A probabilistic model for the evolution of RNA
+structure. BMC Bioinformatics 2004, 5:166.
+Jukes TH, Cantor C: Evolution of protein molecules. In Mamm
+Prot Met Academic Press; 1965:21-132.
+Kimura M: A simple method for estimating evolutionary rates
+of base substitutions through comparative studies of nucleotide sequences. J Mol Evol 1980, 16:111-120.
+Tavaré S: Some probabilistic and statistical problems in the
+analysis of DNA sequences. Lectures on Mathematics in the Life
+Sciences 1986, 17:57-86.
+Yang Z, Nielsen R, Hasegawa M: Models of amino acid substitution and applications to mitochondrial protein evolution. Mol
+Biol Evol 1998, 15:1600-1611.
+Kosiol C, Goldman N, Buttimore NH: new criterion and method
+for amino acid classification. J Theor Biol 2004, 228:97-106.
+Yang Z, Nielsen R, Goldman N, Pedersen A: Codon-substitution
+models for heterogeneous selection pressure at amino acid
+sites. Genetics 2000, 155:431-449.
+Hasegawa M, Kishino H, Yano T: Dating of the human-ape splitting by a molecular clock of mitochondrial DNA. J Mol Evol
+1985, 21:160-174.
+Holmes I, Rubin GM: An expectation maximization algorithm
+for training hidden substition models. J Mol Biol 2002,
+317:757-768.
+Müller T, Spang R, Vingron M: Estimating amino acid substitution models: a comparison of Dayhoff's estimator, the resolvent approach and a maximum likelihood methods. Mol Biol
+Evol 2002, 19:8-13.
+Henikoff S, Henikoff JG: Amino acid substitution matrices from
+protein blocks. Proc Natl Acad Sci 1992, 89:10915-10919.
+Kishino H, Miyata T, Hasegawa M: Maximum likelihood inference
+of protein phylogeny and the origin of chloroplasts. J Mol Evol
+1990, 31:151-160.
+Dayhoff M, Schwartz R, Orcutt B: model of evolutionary change
+in protein. Atlas Prot Seq Struct 1978, 5:345-352.
+Müller T, Vingron M: Modeling amino acid replacement. J Comp
+Biol 2000, 7:761-776.
+Kosiol C, Goldman N: Different Versions of the Dayhoff Rate
+Matrix. Mol Biol Evol 2004, 22:193-199.
+Israel RB, Rosenthal JS, Wei JZ: Finding generators for Markov
+chains via empirical transition matrices, with applications to
+credit rating. Mathematical Finance 2001, 11:245-265.
+Kreinin A, Sidelnikova M: Regularization algorithms for transition matrices. Algo Res Quartely 2001, 4:23-40.
+Felsenstein J: PHYLIP (Phylogeny Inference Package) version
+3.6. Distributed by the author. Department of Genome Sciences,
+University of Washington, Seattle 2004.
+Swofford DL: PAUP*. Phylogenetic Analysis Using Parsimony
+(*and Other Methods). Version 4. Sinauer Associates, Sunderland,
+Massachusetts 2003.
+Adachi J, Hasegawa M: MOLPHY programs for molecular phylogenetics version 2.3. Institute of Statistical Mathematics, Tokyo
+1995.
+Yang Z: PAML: a program package for phylogenetic analysis
+by maximum likelihood. Comput Appl Biosci 1997, 13:555-556.
+Liò P, Goldman N, Thorne JL, Jones3 DT: PASSML: combining
+evolutionary inference and protein secondary structure
+prediction. Bioinformatics 1998, 14:726-733.
+Ronquist F, Huelsenbeck JP: MRBAYES: Bayesian inference of
+phylogenetic trees. Bioinformatics 2001, 17:754-755.
+Cai W, Pei J, Grishin NV: Reconstruction of ancestral protein
+sequences and its applications. BMC Evol Biol 2004, 4:33.
+
+http://www.biomedcentral.com/1471-2105/6/63
+
+65.
+66.
+67.
+68.
+69.
+70.
+71.
+72.
+
+Siepel A, Haussler D: Phylogenetic estimation of contextdependent substitution rates by maximum likelihood. Mol Biol
+Evol 2004, 21:468-488.
+Lunter G, Hein J: A nucleotide substitution model with nearest-neighbour interactions. Bioinformatics 2004:I216-I223.
+Goldman N, Whelan S: A novel use of equilibrium frequencies
+in models of sequence evolution. Mol Biol Evol 2002,
+19:1821-1831.
+Whelan S, Goldman N: Estimating the frequency of events that
+cause
+multiple-nucleotide
+changes.
+Genetics
+2004,
+167:2027-2043.
+Campbell SL, Meyer CDJ: Generalized Inverses of Linear Transformations
+New York: Dover; 1991.
+Jodár L, Law AG, Rezazadeh A, Watson JH, Wu G: Computations
+for the Moore-Penrose and Other Generalized Inverses. Congress Numer 1991, 80:57-64.
+Felsenstein J: Evolutionary Trees from DNA Sequences: A
+Maximum Likelihood Approach. J Mol Evol 1981, 17:368-376.
+Bronson R: Matrix operations New York: McGraw-Hill; 1973.
+
+Publish with Bio Med Central and every
+scientist can read your work free of charge
+"BioMed Central will be the most significant development for
+disseminating the results of biomedical researc h in our lifetime."
+Sir Paul Nurse, Cancer Research UK
+
+Your research papers will be:
+available free of charge to the entire biomedical community
+peer reviewed and published immediately upon acceptance
+cited in PubMed and archived on PubMed Central
+yours — you keep the copyright
+
+BioMedcentral
+
+Submit your manuscript here:
+http://www.biomedcentral.com/info/publishing_adv.asp
+
+Page 30 of 30
+(page number not for citation purposes)
+
+</pre>
+</body>
+</html>
