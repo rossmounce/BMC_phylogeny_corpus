@@ -1,0 +1,1169 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Polynomial algorithms for the Maximal Pairing Problem: efficient phylogenetic targeting on arbitrary trees</title>
+<meta name="Subject" content="Algorithms for Molecular Biology 2010 5:25. doi:10.1186/1748-7188-5-25"/>
+<meta name="Author" content="Christian Arnold"/>
+<meta name="Creator" content="Arbortext Advanced Print Publisher 10.0.1082/W Unicode"/>
+<meta name="Producer" content="Acrobat Distiller 9.0.0 (Windows)"/>
+<meta name="CreationDate" content=""/>
+</head>
+<body>
+<pre>
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+RESEARCH
+
+Open Access
+
+Polynomial algorithms for the Maximal Pairing
+Problem: efficient phylogenetic targeting on
+arbitrary trees
+Christian Arnold1,2, Peter F Stadler1,3,4,5,6*
+
+Abstract
+Background: The Maximal Pairing Problem (MPP) is the prototype of a class of combinatorial optimization
+problems that are of considerable interest in bioinformatics: Given an arbitrary phylogenetic tree T and weights ωxy
+for the paths between any two pairs of leaves (x, y), what is the collection of edge-disjoint paths between pairs of
+leaves that maximizes the total weight? Special cases of the MPP for binary trees and equal weights have been
+described previously; algorithms to solve the general MPP are still missing, however.
+Results: We describe a relatively simple dynamic programming algorithm for the special case of binary trees. We
+then show that the general case of multifurcating trees can be treated by interleaving solutions to certain auxiliary
+Maximum Weighted Matching problems with an extension of this dynamic programming approach, resulting in an
+overall polynomial-time solution of complexity  (n4 log n) w.r.t. the number n of leaves. The source code of a C
+implementation can be obtained under the GNU Public License from http://www.bioinf.uni-leipzig.de/Software/
+Targeting. For binary trees, we furthermore discuss several constrained variants of the MPP as well as a partition
+function approach to the probabilistic version of the MPP.
+Conclusions: The algorithms introduced here make it possible to solve the MPP also for large trees with highdegree vertices. This has practical relevance in the field of comparative phylogenetics and, for example, in the
+context of phylogenetic targeting, i.e., data collection with resource limitations.
+
+Background
+Comparisons among species are fundamental to elucidate
+evolutionary history. In evolutionary biology, for example, they can be used to detect character associations
+[1-3]. In this context, it is important to use statistically
+independent comparisons, i.e., any two comparisons
+must have disjoint evolutionary histories (phylogenetic
+independence). The Maximal Pairing Problem (MPP) is
+the prototype of a class of combinatorial optimization
+problems that models this situation: Given an arbitrary
+phylogenetic tree T and weights ω xy for the paths
+between any two pairs of leaves (x, y) (representing a particular comparison), what is the collection of pairs of
+leaves with maximum total weight so that the connecting
+paths do not intersect in edges?
+* Correspondence: studla@bioinf.uni-leipzig.de
+1
+Bioinformatics Group, Department of Computer Science, and
+Interdisciplinary Center for Bioinformatics, University of Leipzig, Härtelstraße
+16-18, D-04107 Leipzig, Germany
+
+Algorithms for special cases of the MPP that are
+restricted to binary trees and equal weights (which thus
+simply maximizes the number of pairs) have been
+described, but not implemented [2]. Since different pairs
+of taxa may contribute different amounts of information
+depending on various factors (e.g., their phylogenetic
+distance or the difference of particular character states),
+the weighted version is of considerable practical interest.
+A particular question of this type is addressed by phylogenetic targeting, where one seeks to optimize the choice
+of species for which (usually expensive and time-consuming) data should be collected [4]. Phylogenetic targeting boils down to two separate tasks: (1) estimation
+of the weight ω xy that measures the benefit or our
+amount of information contributed by including the
+comparison of species x with species y and (2) the identification of an optimal collection of pairs of species
+such that they represent independent measurements,
+i.e., the solution of the corresponding MPP. To date, the
+
+© 2010 Arnold and Stadler; licensee BioMed Central Ltd. This is an Open Access article distributed under the terms of the Creative
+Commons Attribution License (http://creativecommons.org/licenses/by/2.0), which permits unrestricted use, distribution, and
+reproduction in any medium, provided the original work is properly cited.
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+only publicly available software package for phylogenetic
+targeting [5] can handle multifurcating trees; however,
+the implementation uses a brute force enumeration of
+subsets of children and hence scales exponentially in the
+maximal degree.
+As a consequence of the ever-increasing amount of
+available sequence data, phylogenetic trees of interest
+continue to increase in size, and large trees with hundreds or even thousands of vertices are not an exception
+any more [6-9]. Most large phylogenies contain a substantial number of multifurcations that represent uncertainties in the actual phylogenetic relationships. It
+appears worthwhile, therefore, to extend previous
+approaches to efficiently solve the MPP for multifurcating trees and arbitrary weights.
+
+Algorithms
+
+Page 2 of 10
+
+For the purpose of this contribution, we interpret a
+path π in T as a sequence {e1,...,el} of edges ei Î E such
+that e i = ej implies i = j and ei ∩ e i+1 = {xi} are single
+vertices for all 1 ≤ i <l. The vertices x0 Îe1 and xl Îel
+are the endpoints of π. For two vertices x, y Î V, we
+denote the unique path with endpoints x and y by πxy.
+In the following, we will frequently be concerned with
+paths connecting an interior vertex u Î J with a leaf x Î
+L. This path contains exactly one child of u, which we
+denote by ux (u, x). In the following, the array n(u, x)
+will be used to allow efficient navigation in T.
+A path-system ϒ on T is a set of paths π such that
+1. If π = πxy Î ϒ, then x, y Î L and x ≠ y, i.e., every
+path connects two distinct leaves.
+2. If π′ ≠ π′′, then π′ ∩ π′′ = ∅, i.e., any two paths in
+ϒ are edge-disjoint.
+
+Definitions and Preliminaries
+
+Let T(V, E) be a rooted (unordered) tree with a vertex
+set V = L ∪ J (where L are the leaves of T, J its interior
+vertices, |L| the number of leaves, and |J| the number of
+interior vertices) and an edge set E = V × V.
+Every vertex x, with the exception of the root r, has a
+unique father, fa(x), which is the neighbor of x closest
+to the root. We set fa(r) = ∅. Note that, given an
+unrooted tree without vertices with no father, we can
+obtain a rooted tree by subdividing an arbitrary edge
+with r. Furthermore, for each u Î J, let chd(u) be the
+set of children of v (i.e., its descendants). Obviously, y
+Îchd(u) if and only if fa(y) = u and chd(u) = ∅ if and
+only if v Î L. We write T[v] for the subtree rooted at v.
+Furthermore, we assume that |chd(u)| ≠ 1 throughout
+this contribution. A tree is binary if |chd(u)| = 2 for all
+v Î J, and multifurcating if |chd(u)| > 2 holds for some
+interior vertices. Finally, let T[v, C] be the subtree of T
+rooted at an interior vertex v Î J, but with only a subset
+C of its children. All subtrees T[v] with v Î chd(v)\C are
+thus excluded from T[v, C].
+
+Note that two paths in ϒ have at most one vertex in
+common (otherwise they would also share the sub-path,
+and therefore edges, between two common vertices). In
+binary trees, two edge-disjoint paths are also vertex-disjoint, since two edge-disjoint paths can only run through
+an interior vertex u with |chd(u)| ≥ 3 (see Fig. 1). Two
+edge-disjoint paths can share a vertex u in two distinct
+situations: (1) if both paths have u as the last common
+ancestor of their respective leaves, u must have at least
+four children, (2) if u is the last common ancestor for
+one path, while the other path also includes an ancestor
+of u, three children of u are sufficient. These two situations will also lead to distinct cases in the algorithms
+that are presented next.
+Furthermore, let ω xy : L × L ® R be an arbitrary
+weight function on pairs of leaves of T. We define the
+weight of a path-system ϒ as
+(ϒ) =
+
+∑
+
+ xy ∈ϒ
+
+xy
+
+(1)
+
+Figure 1 Three different path-systems on a tree with 15 leaves. Each path is shown in a distinctive color, and unused edges of the tree are
+shown as thin black lines. Clearly, no two paths share an edge, i.e., the corresponding collection of pairs of leaves is phylogenetically
+independent. Note that the paths are not necessarily vertex-disjoint.
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+Page 3 of 10
+
+A path-system ϒ that maximizes ω(ϒ), i.e., a solution
+of the MPP, will in the following be called optimal
+path-system. It conceptually corresponds to Maddison’s
+“maximal pairing” [2], although we describe here a more
+general problem (see Background and Variants). In the
+following sections, our main objective is to compute
+optimal path-systems.
+The Maximal Pairing Problem for binary trees
+Forward recursion
+
+In this section we reconsider the approach of [4] for the
+special case of binary trees. This subsumes also Maddison’s [2] discussion of the special unweighted case (see
+section Variants). We develop the dynamic programming solution for this class of MPP using a presentation
+that readily leads itself to the desired generalization to
+multifurcating trees.
+For a given interior vertex u Î J we use the abbreviation Cx = Cx(u) = chd(u)\ux for the set of children of u
+that are not contained in the path that connects u with
+the leaf x. Since T is binary by assumption in this subsection, Cx contains a unique vertex C x = {u x } .
+We will need two arrays (S, R) to store optimal solutions of partial problems. For each u Î V, let Su be the
+score of an optimal path-system on the subtree T[u].
+For each u Î V and leaf x Î T[u], we furthermore
+define Rux as the score of an optimal path-system on T
+[u] that is edge-disjoint with the path πux. Rux can be
+decomposed as follows:
+R ux = R u x x + S u x
+
+cing. For binary trees, this is straightforward. We start at
+the root r. In the general set, at an interior vertex u with
+v, w Î chd(u), we first check whether Fu = ∅. If this is
+the case, all paths π xy Î ϒ max are contained within the
+subtrees T[v] and T[w], and we continue to backtrace in
+both T[v] and T[w]. If F u = (x, y), then π xy is added to
+ϒmax, and we need to backtrace an optimal path-system
+for each of the subtrees “hanging off” πxy. In other words,
+we need optimal path-systems for the subtrees rooted at
+the vertices u x and u y for u Î π xy . These can be
+obtained recursively by following the decompositions of
+Rvx and Rwy, respectively, given in eq.(2).
+Time and Space complexity
+
+All entries Su for interior vertices u can be computed in
+3
+2
+ (n ) time, because a total of n(n - 1) Î  (n ) pairs of
+leaves have to be considered in eq.(3) and computation
+of each Su entry takes at most  (n) time. Since we need
+to store the quadratic arrays Rux and n(u, x) as well as the
+linear arrays Su and Fu, we need  (n2) memory.
+The Maximal Pairing Problem for multifurcating trees
+Forward recursion
+
+In trees with multifurcations, for a path-system ϒ, more
+than one path can run through each vertex m Î J with
+|chd(m)| > 2 without violating phylogenetic independence. In addition to an optimal score S u , we also
+define an optimal score Qux of all path-systems ϒ ’u on
+T[u]\T[ux], i.e., of all path-systems that avoid not only
+the path πux but the entire subtree T[ux], where ux is as
+usual the child of u along πux. We therefore have
+
+(2)
+
+For completeness, we set Sx = Rxx = 0 for all leaves
+x Î L.
+An optimal path-system on T [u] either consists of
+optimal path-systems on each of the two trees T [v] and
+T[w] rooted at the two children v, w Î chd(u), or it contains a path πxy with endpoints x Î T[v] and y ÎT[w].
+Thus, Su can be calculated as follows:
+⎧ Sv + Sw
+⎪
+S u = max ⎨
+max max  + R vx + R wy
+⎪ x∈T [v] y∈T [w] xy
+⎩
+
+{
+
+}
+
+(3)
+
+Recursion (3) can then be evaluated from the leaves
+towards the root.
+In order to facilitate the backtracing part of the algorithm, it is convenient to introduce an auxiliary variable
+Fu. If an optimal score in eq.(3) is obtained by the second alternative, the pair (x, y) that led to the highest
+score is recorded in Fu; otherwise, we set Fu = ∅.
+
+R ux = R u x x + Q ux
+
+(4)
+
+The computation of S u and Q ux are analogous problems. In general, consider an (interior) vertex u Î J
+and a subset C ⊆ chd(u) of children of u. Our task is to
+compute an optimal path-system on the subtree T[u, C]
+of T. We first observe that any path-system on T[u, C]
+contains 0 ≤ k ≤ Î|C|/2˚ paths πk through u. Each of
+these paths runs through exactly two distinct children
+v ’k and v ’’ of u. For fixed v ’k and v ’’ , the path ends in
+k
+k
+leaves x ’k ∈ T[v ’k ] and x ’’ ∈ T[v ’’ ] (Fig. 1). The best posk
+k
+sible score contribution for the path πx′x′′ is
+
+Q x′, x′′ = R v′x′ + R v′′x′′ +  x′x′′
+
+(5)
+
+and the best possible score for a particular pair of
+children v′, v′′ Î C is therefore
+
+Q v′,v′′ = max max
+
+x ′∈T [v ′] x ′′∈T [v ′′]
+
+{ R v′x′ + R v′′x′′ +  x′x′′ }
+
+(6)
+
+Backtracing
+
+A computed optimal path-system ϒmax on T = T [r] from
+the forward recursions can be reconstructed by backtra-
+
+For the purpose of backtracing, it will be convenient
+to record the path πxy, or rather its pair of end points
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+
+(x, y), that maximized Q v′,v′′ in eq.(6) in an auxiliary
+variable Fv′,v′′.
+Since there are k paths through u covering 2k of the
+|C| subtrees, there are |C| - 2k children vl of u, with 1 ≤
+l ≤ |C| - 2k, each of which contributes to an optimal
+path-system with a sub-path-system that is contained
+entirely within the subtree T[vl]. Since these contributions are independent of each other, they are obtained
+by solving the MPP on T[vl], i.e., their contribution to
+the total score of an optimum path-system is Svl.
+For each subtree T[u, C] we therefore face the problem of determining the optimal combination of pairs
+and isolated children. This task can be reformulated as a
+weighted matching problem on an auxiliary graph Γ(C)
+whose vertex set consists of two copies of the elements
+of C, denoted v and v*. Within one copy of C, there is
+an edge between any two elements. The remaining |C|
+edges of Γ(C) connect each v with its copy v*. The asso
+ciated edge weights are ω v’,v’’ = Q v′,v′′ and ω v,v* = S v ,
+respectively. An example is shown in Fig. 2.
+Clearly, an optimal path of the form x′,...,v′, u, v′′,...,x′′
+is represented by the edge (v′, v′′) of Γ(C), while a selfcontained subtree T[v] is represented by an edge of the
+form (v, v*). It remains to show that every maximum
+matching of the auxiliary graph Γ(C) corresponds to a
+legal conformation of paths, i.e., we have to demonstrate
+that in a maximum matching ℳ, each vertex v Î C is
+contained in an edge. First, note that v* covered by an
+edge of ℳ if and only if (v, v*) Î ℳ. Suppose v is not
+covered in ℳ. Since ω v,v* is non-negative, we can
+exclude matchings that do not cover all edges of C from
+the solution set. We can thus compute the entries of Su
+and Q ux , respectively, in polynomial time by solving
+maximum weighted matching problems with non-negative weights. Introducing the symbol MWM(Γ) for the
+maximum weight of a matching on the auxiliary graph
+Γ, we can write this as
+
+Page 4 of 10
+
+S u = MWM(Γ(chd(u)))
+
+Here we make use of the fact that the weight of a
+matching equals the sum of the weights of the pathsystems that correspond to the edges of the auxiliary
+graphs. In order to facilitate backtracing, we keep
+tabulated not only the weights but also the corresponding maximum matchings for each Γ(chd(u)) and
+Γ(chd(u)\{ux})).
+Backtracing
+
+Backtracing for multifurcating trees proceeds in analogy
+to the binary case. Again we start from the root towards
+the leaves, treating each interior vertex u. If |chd(u)| =
+2, see the backtracing for the binary case. If |chd(u)| >
+2, we first need the solution ℳ of the MWM for chd(u).
+For each edge (v, v*) Î ℳ, v is called recursively to
+determine its optimal path-system. Each edge (v′, v′′) Î
+ℳ, however, represents a path πxy that belongs to an
+optimal path-system. Each of these paths πxy maximizes
+
+Q v′,v′′ for a particular pair of children v′, v′′ Î chd(u)
+and therefore has been stored in Fv′v′′ during the forward
+recursion. Thus, each of these paths πxy can be added to
+the optimal path-system.
+As in the binary case, it remains to add the solutions
+from an optimal path-systems from the subtrees that are
+not on the path from x to v′ and y to v″, respectively,
+for each particular edge (v′, v′′) Î ℳ. This can be done
+as follows. According to eqns.(2) and (4), R v′x can be
+decomposed into
+
+Rv ’ and either Qv′x or S v ’x . If |chd
+x
+
+’
+(v′)| = 2, the child node v x = k that is not on the path
+from v′ to x is called recursively to obtain an optimal
+path-system in T[k]. If |chd(v′ )| > 2, however, the solution of the MWM for Qv′x is needed to determine an optimal path-system on the subtree T[v′]  T[v′x ] , because
+multiple paths may go through V′. Rv ’x can then be
+
+u
+
+v1*
+v8*
+
+v1
+
+v2
+
+v3
+
+v4
+
+v5
+
+v6
+
+(7)
+
+Q ux = MWM(Γ(chd(u) \ {u x}))
+
+v7
+
+v1
+
+v8
+
+v2*
+
+v8
+v7
+v7*
+
+v3
+v4
+v6
+v6*
+
+Figure 2 Translation of a path-system on T[u] into a matching on the auxiliary graph Γ(chd(u)).
+
+v3*
+
+v2
+
+v5
+
+v4*
+
+v5*
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+further decomposed until Rxx is reached. The same procedure is employed for Rv′′y.
+Time and Space complexity
+
+A maximum weighted matching on arbitrary graphs
+with |V| vertices and |E| edges can be computed in
+ (|V||E| log E) time and  (E) space by Gabow’s classical algorithm [10] or one of several more recent alternatives [11,12]. In our setting, |E| Î  (|chd(u)| 2 ),
+hence the total memory complexity of our dynamic programming algorithm is  (n2).
+
+All entries for Q v′,v′′ (the edge weights for the matching problems) can be computed in  (n3) time, because
+a total of (n - 1) Î  (n 2 ) pairs of leaves have to be
+
+considered in eq.(6) and computation of each Q v′,v′′
+entry takes at most  (n) time. The effort for one of the
+ (|chd(u)|) maximum weighted matching problems for
+a given interior vertex u with more than two children is
+bounded by
+3
+2
+ (|chd(u)| log(|chd(u)|) ). The total effort for all
+MWMs is therefore bounded by
+
+∑ | chd(u ) |
+
+4
+
+log(| chd (u ) |2 ) ∈  (n 4 log n),
+
+u
+
+which dominates the overall time complexity of the
+algorithm (see Appendix for a derivation).
+As in the binary case,  (n2) space is necessary and
+sufficient to store the arrays R and S. Furthermore,
+2
+ (n ) space is needed to save the array Q and the endpoints (x, y) of the path π xy that maximized each Q
+entry. The latter is needed for the backtracing. In addition, we keep the quadratic array n(u, x) to allow efficient navigation in T. For each interior vertex u with
+|chd(u)| > 2, |chd(u)| + 1 different maximal matchings
+have to be stored: one that corresponds to Su and |chd
+(u)| that correspond to Q ux . Each of these solutions
+requires  (|chd(u)|) space. The total space complexity
+of all MWM solutions is therefore ∑u|chd(u)|2 Î  (n2)
+(see Appendix).
+Algorithmic variants
+
+Several variants and special cases of the general MPP
+algorithm are readily derived for related problems. In
+the following, we briefly touch upon some of them.
+Special weight functions
+
+It is worth noting that finding a path-system that simply maximizes the number of pairs, as presented in [2]
+and applied in [13], for example, constitutes a special
+case of the MPP with unit weights. (Of course the
+same result is obtained by setting ω xy to any fixed
+positive weight.) This case may be of practical use
+under certain circumstances, as it maximizes the number of independent measurements, thus improving
+
+Page 5 of 10
+
+power of subsequent statistical tests. Specifically, this
+weight function selects a path-system with ⎢ n ⎥ pairs.
+⎣s⎦
+In order to maximize the number of edges that are
+covered by an optimal path-system, we simply set ωxy
+= d(x, y), where d(x, y) is the graph-theoretic distance,
+i.e., we interpret the edge lengths in the tree as unity.
+Alternatively, instead of assigning weights for pairs of
+leaves directly, edges e Î E can be weighted, and the
+weight for a particular pair of leaves (x, y) can then be
+simply defined as  xy =
+
+∑ (e) .
+
+e∈ xy
+
+Fixed number of paths
+
+A variant of practical interest is to limit an optimal
+path-system to  leaf-pairs. This may be relevant in a
+phylogenetic targeting setting, for example, in cases
+where resources are limiting data acquisition efforts to a
+small number taxa so that it pays to make every effort
+to choose them optimally (see also [4]). Typically,  will
+be small in this setting.
+For binary trees, this variant can be implemented by
+conditioning the matrices R and S to a given number of
+paths. Eq.(2) thus becomes
+R ux ,k = max
+
+l∈{ 0,k }
+
+{ Ru x,l + Su ,k −l }
+x
+
+(8)
+
+x
+
+for a given number k ≤ k in the partial solutions. If an
+optimal path-system on T[u] is composed of optimal
+path-systems on the two trees rooted at its children v
+and w, respectively, then the k paths are arbitrarily contained within T [v] and T [w]. Thus, k + 1 different
+cases have to be considered, and the case with the highest score has to be identified. This yields to the following extension of eq.(3) for Su,k:
+
+S u ,k
+
+⎧ max { S v ,l + S w ,k −l }
+⎪ l∈{ 0,k }
+⎪
+= max ⎨
+max
+⎪ max x∈T [v]  xy + R vx ,l + R wy ,k −l
+l∈
+⎪ { 0 , k −1} y∈T [ w ]
+⎩
+
+{
+
+}
+
+(9)
+
+We set Sx = Rxx,l = Rux,0 = 0 for all x Î L, u Î J, and l
+Î {0, k}. The latter condition ensures that if no path can
+be selected anymore in a particular subtree, its score
+must be 0.
+As mentioned above, however, eq.(9) only holds for
+binary trees. For multifurcating trees, the auxiliary maximum weighted matching problems are replaced by the
+task of finding matchings that maximize the weight for
+a fixed number k of edges. We are, however, not aware
+that this variant of matching problems has been studied
+in detail so far. For small , it could of course be solved
+by brute force enumeration.
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+Page 6 of 10
+
+Selecting paths or taxa in addition to already selected
+paths or taxa
+
+In some applications it may be the case that a subset of
+taxa or paths is already given, e.g. because the corresponding data have already been acquired in the past.
+The question then becomes how additional resources
+should be allocated.
+In the simpler case, we are given a partial path-system
+∏. It then suffices to remove or mark the corresponding
+leaves from T (to ensure that they are not selected
+again) and to set the weight of all paths that have edges
+in common with ∏ to - ∞ to enforce independence
+from the prescribed pairs.
+The situation is less simple if only the taxa are given
+and the pairs are not prescribed. Here, the goal is to
+find an optimal path-system that includes all z Î Z,
+where Z ⊂ L denotes the taxa that are required to
+appear in the output. First, we note that such a solution
+not necessarily exists, e.g. if |Z| = |L| and |L| is odd. As
+a simple example, consider a binary tree with three
+leaves. In that case, only one path and thus two leaves
+can be selected. This constraint also holds for the subtree rooted at any interior vertex u and the z Î Z in T
+[u], i.e., partial solutions of the MPP (see below).
+For binary trees, this variant can be implemented by
+conditioning the matrices R and S to a subset of all possible paths and leaves. This is achieved by setting the
+score to -∞ for a particular interior vertex if one of the
+preconditions cannot be met in eqns.(2) and (3). For
+example, if two leaves x, y Î Z have the same father u,
+an optimal path-system of both T[u] and T must contain the path πxy, because otherwise, either x or y would
+not belong to the optimal path-system due to the
+requirement of independence. Similarly, if a particular
+path πxy in the second alternative achieves the highest
+score in eq.(3), πxy must not be selected if this conflicts
+with the possibility to select other prescribed leaves z Î
+Z (Fig. 3).
+To derive the recursions for this variant, let Zu denote
+the leaves z Î Z with z Î T[u] and let L be the leaves of
+T[u]. It is convenient to first check whether a solution
+exists for T[u]. If L = Zu and |L| is odd, Su = -∞ (i.e., no
+path-systems exists that selects all z Î Z u in T[u]).
+Otherwise, an optimal path-system for T[u] with v, w Î
+chd(u) can be calculated as follows:
+⎧ ⎧ S v + S w if v ∉ Z and w ∉ Z
+⎪⎨
+otherwise
+⎪ ⎩ −∞
+⎪
+−∞ if R u x x = −∞
+⎧
+S u = max ⎨
+⎪ max ⎪
+or S u x = −∞
+⎪ x∈T [v] ⎨
+⎪  + R + S otherwise
+⎪ y∈T [ w ]
+ux x
+ux
+⎩ xy
+⎩
+
+(10)
+
+T[h] > 0
+
+T[k] = inf
+
+Figure 3 A binary tree for which only one possible pathsystem exists that fulfills all constraints. Leaves that must appear
+in the output are highlighted with an arrow, and the (only) valid
+path-system is displayed in color. Note that the score of the subtree
+T[k] = ∞, because no path-system in T[k] exists that includes all
+three leaves x Î T[k]. The score of T[h], however, is greater than 0.
+
+Furthermore,
+⎧ −∞ if R u x x = −∞ or S u x = −∞
+⎪
+R ux = ⎨
+⎪
+⎩ R u x x + S u x otherwise
+
+(11)
+
+and
+if x ∉ Z
+⎧0
+Sx = ⎨
+⎩ −∞ otherwise
+
+(12)
+
+for any x Î L. In analogy to the algorithm for the
+unconstrained MPP, we initialize the recursions by
+R xx = 0 for x Î L. This variant does not change the
+overall time and space complexity, and backtracing is
+also identical to the unconstrained version of the MPP.
+For multifurcating trees, the maximum weighted
+matching problems are replaced by finding matchings
+that maximize the weight with the constraint that particular vertices must be included in the matching. Similarly to the variant introduced above, however, we are
+not aware that this particular problem has been studied
+in detail.
+Probabilistic version
+
+Sometimes, not only an optimal solution is of interest. As
+in the case of sequence alignments [14] or biopolymer
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+Page 7 of 10
+
+structures [15], one may analyze the entire ensemble of
+solutions. Both for physical systems such as RNA, and for
+alignments with a log-odds based scoring system, one can
+show that individual configurations ϒ with score S(ϒ), in
+our case path-systems, contribute to the ensemble proportional its Boltzmann weight exp(-bS(ϒ)), where the
+“inverse temperature” b defines a natural scale that is
+implicitly given by the scoring or energy model. In the
+case of physical systems b = 1/kT is linked to the ambient
+temperature T; for log-odds scores, b = 1; if the scoring
+scheme is rescaled, as e.g. in the case of the Dayhoff
+matrix in protein alignments, then b is the inverse of this
+scaling factor. In cases where schemes without a probabilistic interpretation are used, suitable values of b have to be
+determined empirically. The larger b, the more an optimal
+path-system is emphasized in the ensemble. The partition
+function of the system is
+Z=
+
+∑ exp(− S(ϒ)).
+
+(13)
+
+ϒ
+
+The probability p ϒ to pick ϒ from the ensemble is
+pϒ = exp(-bS(ϒ))/Z.
+The recursion in eq.(3) can be converted into a corresponding recursion for the partition functions Z u of
+path-systems on subtrees T = T[u], because the decomposition of the score-maximization is unambiguous in
+the sense that every conformation falls into exactly of
+the case of recursion. This is a generic feature of
+dynamic programming algorithms that is explored
+in some depth in the theory of Algebraic Dynamic
+Programming [16]. We find
+Z u = Z v·Z w +
+
+∑ ∑ exp(−
+
+x∈T [v] y∈T [w]
+
+R R
+xy )· vx· wy
+
+(14)
+
+with Zu = 1 if u Î L and
+R kx = R k x x + Z k x
+
+∑ exp(−(ϒ))
+
+ϒ xy
+
+⎧
+⎪exp( −  )•R •R if u = k
+xy
+vx
+wy
+⎪
+⎪
+Z u = ⎨ Z v •Z w +
+⎪
+w
+exp( − ij )•Rvi •Rwj otherwise
+⎪i∈T [ v∑ T [ w]
+], j∈
+⎪
+⎩  xy ∩ij =∅
+
+(17)
+
+In resource requirements, this backward recursion is
+comparable to the forward recursion in eq.(3): Z(πxy)
+and thus also P xy can be calculated in  (n 3 ) time,
+because the number of leaf-pairs that have to be considered is still in  (n 2 ). There is an additional factor
+ (n) arising from the need to determine if the path πxy
+is edge-disjoint with another path, which however does
+not increase overall time complexity. Furthermore,
+2
+ (n ) space is needed.
+The computation of partition functions is a much
+more complex problem for trees with multifurcations
+since it would require us in particular to compute partition functions for the interleaved matching problems.
+These are not solved by means of dynamic programming; instead, they use a greedy algorithm acting on
+augmenting paths in the auxiliary graphs. These algorithms therefore do not appear to give rise to efficient
+partition function versions.
+The TARGETING software
+
+(15)
+
+for k Î J. Note that these recursions are completely
+analogous to the score optimization in eqns.(2) and (3):
+the max operator is replaced by a sum, and addition of
+scores is replaced by multiplication of partition functions and Boltzmann factors.
+In order to compute the probability Pxy of a particular
+path πxy in the ensemble we have to add up the contributions pϒ of all path-systems that contain πxy
+Z( xy ) :=
+
+computed in analogy to eq.(14), but with two additional
+constraints. First, since πxy Î ϒ by definition, the leaves
+i Î T[v] and j Î T[w] are constrained in eq.(14),
+because only paths πij that are edge-disjoint with πxy
+can be considered. The recursion for the partition function of the last common ancestor node of x and y,
+denoted k, is also constrained, because π xy must go
+through k. Calculation of the partition functions for the
+children of k is therefore not needed to compute Zk .
+Thus,
+
+(16)
+
+and compute the ratio Pxy = Z(πxy)/Z. The recursions
+for the restricted partition function Z(π xy ) can be
+
+We implemented the polynomial algorithms for the
+MPP in the program TARGETING. The TARGETING
+program is written in C and uses Ed Rothberg’s implementation [17] of the Gabow algorithm [10] to solve the
+Maximum Weight Matching Problem on general graphs.
+The software also provides an user-friendly interface
+and can solve the special weight variants as well. The
+source code can be obtained under the GNU Public
+License at http://www.bioinf.uni-leipzig.de/Software/
+Targeting/.
+
+Concluding Remarks
+In this contribution, we introduced a polynomial algorithm for the Maximal Pairing Problem (MPP) as well
+as some variants. The efficient generalization of the
+dynamic programming approach to trees with
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+multifurcations is non-trivial, since a straightforward
+approach yields run-times that are exponential in the
+maximal degree of the input tree. A polynomial-time
+algorithm can be constructed by interleaving the
+dynamic programming steps with the solution of auxiliary maximum weighted matching problems. This generalized algorithm for the MPP is implemented in the
+software package TARGETING, providing a user-friendly
+and efficient way to solve the MPP as well as some of
+its variants.
+Future work in this area is likely to focus on developing algorithms for the variants of the MPP on multifurcating trees. In particular, the interleaving of dynamic
+programming for the MPP and the greedy approach for
+the auxiliary matching problems does not readily generalize to a partition function algorithm for multifurcating
+trees. The concept of unique matchings as discussed in
+[18] may be of relevance in this context.
+The MPP solver presented here has applications in a
+broad variety of research areas. The method of phylogenetically independent comparisons relies on relatively
+few assumptions [1-3] and is frequently used in evolutionary biology, in particular in anthropology, comparative phylogenetics and, more generally, in studies that
+test evolutionary hypotheses [19-22]. As highlighted earlier, another application area lies in the design of studies
+in which tedious and expensive data collection is the
+limiting factor, so that a careful selection (phylogenetic
+targeting) becomes an economic necessity [5]. As noted
+in [13], alternative applications can be found in molecular phylogenetics, for example in the context of estimating relative frequencies of different nucleotide
+substitutions or the determination of the fraction of
+invariant sites in a particular gene.
+
+Appendix
+Pseudocode
+
+Below, we include some pseudocode for the computation of an optimal path-system for an arbitrary tree T.
+Require: ωxy ≥ 0 ∀ pairs x, y Î L and precomputed
+array n(u, x) n(u, x) ∀ u Î J and x Î L
+1: Sx = Rxx = Qx,x = 0 ∀x Î L
+R ux = R u x x + S u x
+if
+|chd(u)|
+=
+2
+and
+R ux = R u x x + Q u x , x if |chd(u)| > 2 ∀u Î J and x Î L
+2: for all u Î J in post-order tree traversal do
+3: if |chd(u)| = 2 then
+4:
+{v, ω} ¬ chd(u)
+5:
+Su1 = Sv + Sw
+6:
+for all paths πxy with x Î T[v] and y Î T[w] do
+7:
+determine the path πxy that maximizes
+8:
+Su2 = ωxy + Rv,x + Rw,y
+9:
+end for
+10:
+if Su2 >Su1 then
+11:
+Fu = (x, y)
+
+Page 8 of 10
+
+12:
+else
+13:
+Fu = ∅
+14:
+end if
+15:
+Su = max(Su1, Su2)
+16: else
+17:
+for all pairs v′, v′′ Î chd(u) do
+18:
+determine the path π xy that maximizes
+
+
+and set Fv′v′′ = (x, y) and ωv′,v′′ = Q v′,v′′
+Q v′,v′′
+19:
+end for
+20:
+for all pairs v, v* Î chd(u) do
+21:
+ωv,v* = Sv
+22:
+end for
+23:
+use computed edge weights for the following
+MWM problems
+24:
+Su = MWM(Γ(chd(u)))
+25:
+for i = 1 to |chd(u)| do
+26:
+k ¬ i-th child from u
+27:
+compute δ = MWM(Γ(chd(u)\k))
+28:
+for all leaves x Î T[k] do
+29:
+Qux = δ
+30:
+end for
+31:
+end for
+32:
+tabulate solution of all MWM problems
+33: end if
+34: end for
+The following algorithm summarizes backtracing. It
+starts at the root of the tree, but consider any vertex u:
+1: if |chd(u)| = 0 then
+2: return
+3: end if
+4: if |chd(u)| = 2 then
+5: {v, w} ¬ chd(u)
+6: if Fu = ∅ then
+7:
+call backtracing for T[v] (using the solution of
+the MWM for Sv if |chd(v)| > 2)
+8:
+repeat for T[w]
+9: else
+10:
+add Fu = (x, y) = πxy to solution set
+11:
+k = v {path from v to x}
+12:
+while k ≠ x do
+13:
+*
+14:
+if |chd(k)| = 2 then
+15:
+call backtracing for T[k x ]
+16:
+else
+17:
+call backtracing for T[k]\T[kx] (using the
+solution of the MWM for Qkx)
+18:
+end if
+19:
+*
+20:
+k = kx
+21:
+end while
+22:
+repeat for k = w {path from w to y}
+23: end if
+24: else
+25: {v1, v2,...,vn} ¬ chd(u)
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+Page 9 of 10
+
+26: take the appropriate tabulated MWMM
+27: for all edges (vi, vj)of M do
+28:
+add Fv i ,v j = (x, y) = πxy to solution set
+29:
+k = vi {path from vi to x}
+30:
+while k ≠ x do
+31:
+see case differentiation for the binary case
+(lines between *)
+32:
+k = kx
+33:
+end while
+34:
+repeat for k = vj {path from vj to y
+35: end for
+36:
+for all edges (vi, vl*)of M do
+37:
+call backtracing for T[vi] (using the solution of
+the MWM for S v i if |chd(vi)| > 2)
+38: end for
+39: end if
+A useful inequality
+
+Consider an algorithm that operates on a rooted tree
+with n leaves requiring  ((du)a) time for each interior
+vertex with du children. A naive estimate immediately
+yields the upper bound  (na+1 ). Using the following
+lemma, however, we can obtain a better upper bound.
+Although Lemma 0.1 is probably known, we could not
+find a reference and hence include a proof for
+completeness.
+Lemma 0.1 Let T be a phylogenetic tree with n leaves,
+u an interior vertex, du = |chd(u)| the out-degree of u,
+and a > 1. Then
+
+∑ (d )
+u
+
+
+
+≤ n
+
+(18)
+
+u
+
+Proof Let h denote the total number of interior vertices. Each leaf or interior vertex except the root is a
+child of exactly one interior vertex. Thus ∑ u du = n +
+(h - 1). For fixed h, we can employ the method of
+Lagrange multipliers to maximize the objective function
+F(d u1 , d u 2 ,  , d u h ) = ∑ (d u ) subject to the constraint
+u
+
+∑u du = n + (h - 1) = c ≤ 2n - 1. The Lagrange function
+is then
+Λ(d u1 , d u 2 ,  , d u h ,  ) =
+
+∑ (d )
+
+
+
+u
+
+∑ (d )
+
++ (
+
+u
+
+u
+
+
+
+− c). (19)
+
+u
+
+Setting the partial derivatives of Λ = 0 yields the following system of equations:
+∂Λ
+∂dui
+∂Λ
+∂
+
+=  •(dui ) −1 + 
+
+∀ui , i ∈ {1, h}
+
+=
+
+∑
+
+
+
+u
+
+(du ) − c
+
+(20)
+
+This system of equations is solved by
+d u1 = d u 2 =  = d u h = d for all i Î {1, h}. The above
+sum is maximal when T is a full d-ary tree for some d.
+The constraint can thus be expressed as h · d = n +
+h -1 and F = hda which is maximized by making d as
+large as possible (i.e., n) and hence minimizing the
+number h of interior vertices (i.e., 1). Hence, F(n)=na.
+Author details
+1
+Bioinformatics Group, Department of Computer Science, and
+Interdisciplinary Center for Bioinformatics, University of Leipzig, Härtelstraße
+16-18, D-04107 Leipzig, Germany. 2Harvard University, Department of Human
+Evolutionary Biology, Peabody Museum, 11 Divinity Avenue, Cambridge MA
+02138, USA. 3Max Planck Institute for Mathematics in the Sciences,
+Inselstraße 22, D-04103 Leipzig, Germany. 4Fraunhofer Institute for Cell
+Therapy and Immunology, Perlickstraße 1, D-04103 Leipzig, Germany. 5Santa
+Fe Institute, 1399 Hyde Park Rd., Santa Fe, NM 87501, USA. 6Institute for
+Theoretical Chemistry, University of Vienna, Währingerstraße 17, A-1090
+Wien, Austria.
+Authors’ contributions
+Both authors designed the study and developed the algorithms. CA
+implemented the TARGETING software. Both authors collaborated in writing
+the manuscript. All authors read and approved the final manuscript.
+Competing interests
+The authors declare that they have no competing interests.
+Received: 8 April 2010 Accepted: 2 June 2010 Published: 2 June 2010
+References
+1. Felsenstein J: Phylogenies and the comparative method. Amer Nat 1985,
+125:1-15.
+2. Maddison WP: Testing Character Correlation using Pairwise Comparisons
+on a Phylogeny. J Theor Biol 2000, 202:195-204.
+3. Ackerly DD: Taxon sampling, correlated evolution, and independent
+contrasts. Evolution 2000, 54:1480-1492.
+4. Arnold C, Nunn CL: Phylogenetic Targeting of Research Effort in
+Evolutionary Biology. American Naturalist 2010, In review.
+5. Arnold C, Nunn CL: Phylogenetic Targeting Website. 2010 [http://
+phylotargeting.fas.harvard.edu].
+6. Bininda-Emonds OR, Cardillo M, Jones KE, MacPhee RD, Beck RM, Grenyer R,
+Price SA, Vos RA, Gittleman JL, Purvis A: The delayed rise of present-day
+mammals. Nature 2007, 446:507-512.
+7. Burleigh JG, Hilu KW, Soltis DE: Inferring phylogenies with incomplete
+data sets: a 5-gene, 567-taxon analysis of angiosperms. BMC Evol Biol
+2009, 9:61.
+8. Arnold C, Matthews LJ, Nunn CL: The 10kTrees Website: A New Online
+Resource for Primate Phylogeny. Evol Anthropology 2010.
+9. Sanderson MJ, Driskell AC: The challenge of constructing large
+phylogenetic trees. Trends Plant Sci 2003, 8:374-379.
+10. Gabow H: Implementation of Algorithms for Maximum Matching on
+Nonbipartite Graphs. PhD thesis Stanford University 1973.
+11. Galil Z, Micali S, Harold G: An O(EV log V) algorithm for finding a maximal
+weighted matching in general graphs. SIAM J Computing 1986,
+15:120-130.
+12. Gabow HN, Tarjan RE: Faster scaling algorithms for general graph
+matching problems. J ACM 1991, 38:815-853.
+13. Purvis A, Bromham L: Estimating the transition/transversion ratio from
+independent pairwise comparisons with an assumed phylogeny. J Mol
+Evol 1997, 44:112-119.
+14. Mückstein U, Hofacker IL, Stadler PF: Stochastic Pairwise Alignments.
+Bioinformatics 2002, S153-S160:18.
+15. McCaskill JS: The equilibrium partition function and base pair binding
+probabilities for RNA secondary structures. Biopolymers 1990,
+29:1105-1119.
+
+Arnold and Stadler Algorithms for Molecular Biology 2010, 5:25
+http://www.almob.org/content/5/1/25
+
+Page 10 of 10
+
+16. Steffen P, Giegerich R: Versatile and declarative dynamic programming
+using pair algebras. BMC Bioinformatics 2005, 6:224.
+17. Rothenberg E: Solver for the Maximum Weight Matching Problem. 1999
+[http://elib.zib.de/pub/Packages/mathprog/matching/weighted/].
+18. Gabow HN, Kaplan H, Tarjan RE: Unique Maximum Matching Algorithms.
+J Algorithms 2001, 40:159-183.
+19. Nunn CL, Baton RA: Comparative Methods for Studying Primate
+Adaptation and Allometry. Evol Anthropology 2001, 10:81-98.
+20. Goodwin NB, Dulvy NK, Reynolds JD: Life-history correlates of the
+evolution of live bearing in fishes. Phil Trans R Soc B: Biol Sci 2002,
+357:259-267.
+21. Vinyard CJ, Wall CE, Williams SH, Hylander WL: Comparative functional
+analysis of skull morphology of tree-gouging primates. Am J Phys
+Anthropology 2003, 120:153-170.
+22. Poff NLR, Olden JD, Vieira NKM, Finn DS, Simmons MP, Kondratieff BC:
+Functional trait niches of North American lotic insects: traits-based
+ecological applications in light of phylogenetic relationships. J North Am
+Benthological Soc 2006, 25:730-755.
+doi:10.1186/1748-7188-5-25
+Cite this article as: Arnold and Stadler: Polynomial algorithms for the
+Maximal Pairing Problem: efficient phylogenetic targeting on arbitrary
+trees. Algorithms for Molecular Biology 2010 5:25.
+
+Submit your next manuscript to BioMed Central
+and take full advantage of:
+• Convenient online submission
+• Thorough peer review
+• No space constraints or color ﬁgure charges
+• Immediate publication on acceptance
+• Inclusion in PubMed, CAS, Scopus and Google Scholar
+• Research which is freely available for redistribution
+Submit your manuscript at
+www.biomedcentral.com/submit
+
+</pre>
+</body>
+</html>
